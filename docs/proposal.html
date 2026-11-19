@@ -39,11 +39,14 @@ strong { color: var(--ink); }
 
 <h2>Proposed features</h2>
 <ul>
+<li>Paste a WhatsApp list in Hinglish or with brand names, parsed by trie + KMP</li>
 <li>Autocomplete list builder with quantities, example lists, departure time and travel mode</li>
 <li>Bloom-filter pre-screen of every open shop's stock, confirmed exactly against inventory</li>
 <li>Shop selection by weighted set cover, with a price-vs-distance slider</li>
 <li>Route ordering with a 2-approximate metric-TSP tour plus 2-opt, shown on an animated map</li>
 <li>Per-item deal score against the city median; comparison with two common shopping strategies</li>
+<li>One-tap Google Maps directions and a WhatsApp-ready plan; closing-time warnings</li>
+<li>Procedural 3D city view with a camera fly-through of the route</li>
 <li>"X-ray" view of each algorithm's trace and a "Lab" view of live server-side benchmarks</li>
 <li>Clear handling of empty lists, unknown or duplicate items, closed shops and insufficient stock</li>
 </ul>
@@ -55,7 +58,7 @@ strong { color: var(--ink); }
 <tr><td><strong>Metric TSP 2-approximation</strong> (Kruskal MST with union-find, preorder shortcut, 2-opt) + Held-Karp baseline</td><td><span class="tag">U2, U5 · CO2/CO4</span></td><td>Ordering the stops is TSP on straight-line distances, which form a metric, so the double-tree bound of 2·OPT applies.</td></tr>
 <tr><td><strong>Bloom filter</strong> with random salt</td><td><span class="tag">U6 · CO5</span></td><td>Shop inventories are mostly "no". A few-hundred-bit sketch per shop rejects about 85% of shop–item checks with no false negatives, and every "maybe" is confirmed exactly.</td></tr>
 <tr><td><strong>Randomized quickselect / quicksort</strong></td><td><span class="tag">U6 · CO5</span></td><td>Median and extreme prices per item in expected O(n), safe on sorted or duplicate-heavy price lists. Also orders Kruskal's edges.</td></tr>
-<tr><td><strong>Trie</strong> over word-start suffixes</td><td><span class="tag">U4 · CO3</span></td><td>Prefix autocomplete that matches any word of a name, at a cost independent of catalogue size.</td></tr>
+<tr><td><strong>Trie</strong> + <strong>KMP</strong></td><td><span class="tag">U4 · CO3</span></td><td>Trie: prefix autocomplete and candidate generation. KMP: O(n + m) scoring of pasted words against candidate names.</td></tr>
 </table>
 
 <h2>Data source</h2>

@@ -2,11 +2,14 @@
 
 Sweep plans a single trip for a whole errand list. You type what you need, set where you live and when you're leaving, and Sweep:
 
+0. reads a pasted WhatsApp list in Hinglish or with brand names ("2 doodh, ande, dolo, 3 copy, surf excel") (**trie candidates + KMP scoring**, Unit 4)
 1. finds items as you type (**trie**, Unit 4)
 2. screens 36 Powai shops' stock in microseconds (**Bloom filters** + exact confirmation, Unit 6)
 3. picks the fewest, cheapest set of shops that covers the list (**greedy weighted set cover**, Unit 5, checked against an exact DP)
 4. orders the stops into a short loop from home (**metric-TSP 2-approximation**: Kruskal MST with **union-find**, preorder shortcut, 2-opt; Units 2 and 5, checked against Held-Karp)
 5. tells you whether each price is a deal (**randomized quickselect** medians, Unit 6)
+
+Then it hands the trip over: **one-tap Google Maps directions** with every stop as a waypoint, a **WhatsApp-ready plan**, and warnings for shops that would close before you arrive. The route can be viewed on an animated 2D map or flown through in a **procedural 3D Powai** (Three.js, bundled locally so the demo works offline), with a night mode.
 
 The backend is Java 21 / Spring Boot 4 and implements every assessed algorithm itself. The frontend is plain HTML/CSS/JS served by the same app. It calls the REST API and animates the result.
 
@@ -14,7 +17,7 @@ The backend is Java 21 / Spring Boot 4 and implements every assessed algorithm i
 |---|---|
 | CO1 complexity | Complexity table in the app (How it works), docs/REPORT |
 | CO2 data structures | `DisjointSet` (Kruskal), trie nodes |
-| CO3 string indexing | `Trie` over word-start suffixes |
+| CO3 string matching / indexing | `Trie` over word-start suffixes, `Kmp` (paste parser) |
 | CO4 optimisation / approximation | `SetCover`, `MetricTsp` |
 | CO5 randomized / probabilistic | `BloomFilter` (random salt), `RandomizedSelect` (quickselect + quicksort) |
 | CO6 complexity classes | Exact DP baselines; NP-hardness discussion in the report |
@@ -35,7 +38,7 @@ Open **http://localhost:8080**. Port is configurable with `PORT=9090 ./mvnw spri
 Tests and a runnable jar:
 
 ```bash
-./mvnw test                     # 49 JUnit tests
+./mvnw test                     # 62 JUnit tests
 ./mvnw -DskipTests package && java -jar target/sweep-1.0.0.jar
 ```
 
@@ -45,8 +48,10 @@ Regenerate the dataset (deterministic, seed 42): `python3 tools/generate_dataset
 
 ## Demo script (8 minutes)
 
+0. **Paste a WhatsApp list.** Press *Use example* and then *Read list*. The Hinglish message becomes catalogue items with confidence scores. Add them to the list.
 1. **Plan tab.** "Weekly groceries" is preloaded. Press **Sweep it** and narrate the five stages as the ticker shows them: Bloom wave, set-cover picks with items flying to shops, MST, route, runner.
 2. Point at the receipt (deal tags) and the comparison: Sweep vs "cheapest everywhere" (8 stops, 18 km) vs "nearest store first".
+2b. Switch to **3D city**: the route grows as a light trail and the camera flies the loop. Toggle dark mode for the night city. Open **Directions in Google Maps** or **Send on WhatsApp**.
 3. Drag the home pin somewhere else and re-run; the plan changes. Slide **price vs distance** to 0 (pure set cover, H(n) guarantee) and then to 3.
 4. **Edge cases:** tap "2 AM emergency". Paracetamol is found at a 24-hour pharmacy, and the notebook is reported as "only stocked at stores closed at 2:00". Set a quantity to 50 to get "no open store has 50 in stock". Type a misspelt item to get a 400 with "did you mean".
 5. **X-ray tab.** Click a red cell (false positive) to watch the k probe bits light up in the store's real bit array. Then show set-cover ratios vs the exact DP, MST → preorder → 2-opt → Held-Karp bars, and the quickselect deal meters.
@@ -56,12 +61,13 @@ Regenerate the dataset (deterministic, seed 42): `python3 tools/generate_dataset
 
 | Method | Path | Purpose |
 |---|---|---|
+| POST | `/api/parse` `{"text": "2 doodh, dolo, 3 copy"}` | Free-text list → items (trie + KMP + aliases), with confidence and alternatives |
 | GET | `/api/suggest?q=dal&k=8` | Trie autocomplete, with timing against a linear scan |
 | GET | `/api/stores` | Shops with hours and Bloom sketch size |
 | GET | `/api/items` | Catalogue |
 | POST | `/api/plan` | Full pipeline (body below) |
 | GET | `/api/bloom?store=31&item=55` | The k bit positions, the store's bit array, and the exact-check verdict |
-| GET | `/api/bench/{trie\|bloom\|select\|setcover\|tsp}?fresh=true` | Server-side benchmarks |
+| GET | `/api/bench/{trie\|kmp\|bloom\|select\|setcover\|tsp}?fresh=true` | Server-side benchmarks |
 
 ```bash
 curl -s -X POST localhost:8080/api/plan -H 'content-type: application/json' \
@@ -82,6 +88,9 @@ curl -s -X POST localhost:8080/api/plan -H 'content-type: application/json' \
 | `stopCost` | ₹-equivalent cost of each extra stop | 0–500 (40) |
 | `speedKmh` | travel speed for time estimates | 3–60 (18) |
 | `items` | up to 20 lines, qty 1–50; duplicate lines are merged | required |
+| `mode` | `walk` / `cycle` / `auto`, used for the Google Maps travel mode | optional |
+
+The plan response also includes `share.mapsUrl` (Google Maps directions, home → stops → home) and `share.text` (a WhatsApp-ready summary). Each stop has `arrival` (clock time) and `closingRisk`.
 
 Errors come back as `400 {"error": "...", "details": ["every problem found"]}`. See `data/samples/invalid.json`.
 
@@ -99,12 +108,12 @@ Assumptions: coordinates are approximate positions on a flat km grid. Travel dis
 
 ```
 src/main/java/edu/atlas/sweep/
-  algo/      Trie, BloomFilter, RandomizedSelect, DisjointSet, SetCover, MetricTsp   <- assessed algorithms
+  algo/      Trie, Kmp, BloomFilter, RandomizedSelect, DisjointSet, SetCover, MetricTsp   <- assessed algorithms
   domain/    City (dataset loader, indexes)
-  service/   PlannerService (pipeline), BenchmarkService
+  service/   PlannerService (pipeline), ListParser (paste a list), BenchmarkService
   web/       ApiController (REST, validation, errors), Api (DTOs)
-src/main/resources/static/   index.html, app.css, app.js (frontend)
-src/test/java/...            49 JUnit tests (5+ per algorithm, edge + stress cases)
+src/main/resources/static/   index.html, app.css, app.js, city3d.js, vendor/three.module.min.js (MIT)
+src/test/java/...            62 JUnit tests (5+ per algorithm, edge + stress cases)
 data/                        dataset + sample requests
 docs/                        proposal, technical report (HTML + PDF), screenshots
 tools/generate_dataset.py

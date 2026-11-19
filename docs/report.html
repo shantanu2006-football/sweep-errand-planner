@@ -77,26 +77,28 @@ figcaption { font-size: .78rem; color: var(--ink-3); margin-top: .35rem; }
 <article class="doc">
 <p class="eyebrow">Advanced Algorithms · CIA 3 · B.Tech CS AI &amp; ML · Semester V · 2026–27</p>
 <h1>Sweep</h1>
-<p class="sub">One trip, every errand. An errand planner driven by a trie, Bloom filters, greedy set cover, a metric-TSP approximation and randomized selection.</p>
+<p class="sub">One trip, every errand. Paste the list your family sent, and Sweep turns it into the cheapest, shortest single trip across Powai. Driven by a trie, KMP, Bloom filters, greedy set cover, a metric-TSP approximation and randomized selection.</p>
 <div class="meta">
   <div><b>Author</b>Shantanu Puthran (2405111)</div>
   <div><b>Backend</b>Java 21, Spring Boot 4.1 REST</div>
   <div><b>Frontend</b>HTML / CSS / vanilla JS</div>
-  <div><b>Evidence</b>49 JUnit tests · 5 live benchmarks</div>
+  <div><b>Evidence</b>62 JUnit tests · 6 live benchmarks</div>
 </div>
 
 <h2><span class="n">1</span>Problem statement</h2>
 <p>A typical week in a Mumbai suburb has a list that spans several kinds of shop: groceries from a supermarket, medicine from a chemist, a notebook from a stationer, a bulb from a hardware store. Most people take one of two approaches. They walk to the nearest shop, then the next nearest, until they've got everything. Or they chase the lowest price per item and criss-cross the suburb. The first overpays and the second wastes travel. Neither checks whether a shop is open or has enough stock.</p>
+<p>Lists rarely arrive tidy. They come as a WhatsApp message in Hinglish with brand names ("2 doodh, ande, dolo, 3 copy, surf excel"). So the planner also has to read free text reliably, and hand the result over to the tools people already use (Google Maps, WhatsApp).</p>
 <p><strong>Target user:</strong> a student or working resident of Powai planning a single errand run on foot, by cycle or by auto-rickshaw. <strong>Decision improved:</strong> which shops to visit, what to buy where, and in what order, so that basket price + travel cost + per-stop overhead is minimised.</p>
 <h3>Inputs, outputs and constraints</h3>
 <div class="tw"><table>
 <tr><th>Input</th><th>Constraint</th><th>Validation behaviour</th></tr>
 <tr><td>Home location (km grid)</td><td>0 ≤ x ≤ 8, 0 ≤ y ≤ 6</td><td>400 with message if outside</td></tr>
+<tr><td>Pasted free text</td><td>≤ 3,000 chars</td><td>Header lines skipped; lines below 50% confidence returned unmatched with alternatives, never guessed</td></tr>
 <tr><td>Item lines</td><td>1–20 lines, qty 1–50, known item</td><td>Empty list rejected; unknown names get trie "did you mean"; duplicate lines merged with a notice</td></tr>
 <tr><td>Departure hour</td><td>0–23</td><td>Closed shops excluded; items only stocked at closed shops are reported with opening times</td></tr>
 <tr><td>λ (price weight), ₹/km, ₹/stop, speed</td><td>0–5, 0–100, 0–500, 3–60</td><td>All out-of-range values listed together in one 400 response</td></tr>
 </table></div>
-<p><strong>Output:</strong> an ordered list of stops with a pick-list per stop, prices, per-item deal score against the city median, totals (₹, km, minutes), two baseline strategies for comparison, and an algorithm trace: Bloom outcomes, set-cover steps, MST edges, preorder and final tours, and Held-Karp ratio. Items that cannot be bought are never dropped silently. Each is returned in <code>unmet</code> with the reason: not stocked anywhere, insufficient stock at any single open shop, or only stocked at closed shops.</p>
+<p><strong>Output:</strong> an ordered list of stops with a pick-list per stop, prices, per-item deal score against the city median, totals (₹, km, minutes), two baseline strategies for comparison, and an algorithm trace: Bloom outcomes, set-cover steps, MST edges, preorder and final tours, and Held-Karp ratio. It also returns a Google Maps directions URL (home → stops → home) and a WhatsApp-ready summary, and flags any stop the user would reach within 15 minutes of closing. Items that cannot be bought are never dropped silently. Each is returned in <code>unmet</code> with the reason: not stocked anywhere, insufficient stock at any single open shop, or only stocked at closed shops.</p>
 <h3>Measurable success criteria</h3>
 <ul>
 <li>Every returned pick is genuinely stocked, with enough units, at the assigned shop. Asserted in tests for every plan.</li>
@@ -141,6 +143,16 @@ suggest(p, k):     node ← walk p from root (fail → empty)
                    collecting distinct ids until k are found</pre>
 <p><strong>Correctness:</strong> an id is reachable from prefix p if and only if some inserted suffix starts with p, which happens if and only if some word of the name starts with p. The stress test compares against a linear scan on 2,000 random names. <strong>Complexity:</strong> insert O(L²) worst case per name (O(L) per word suffix). Query O(|p| + V), where V is the number of nodes visited before k ids are found. It is independent of catalogue size N, while a scan is O(N·L).</p>
 
+<h3>4.1b KMP inside the paste parser (Unit 4, CO3)</h3>
+<pre>failure[0]=0; for i in 1..m−1: k←failure[i−1]; while k&gt;0 and P[i]≠P[k]: k←failure[k−1]
+                              if P[i]=P[k]: k++;  failure[i]←k
+search: j←0; for each T[i]: while j&gt;0 and T[i]≠P[j]: j←failure[j−1];  if T[i]=P[j]: j++
+                            if j=m: report i−m+1
+parseLine: qty ← regex (2, x2, "do", "teen"; sizes like 5kg kept); words ← aliases (doodh→milk, dolo→paracetamol)
+           C ← ∪ trie.suggest(word);  score(c) = Σ_word [KMP finds word in c] · (|word| + 1.5 if at a word start)
+           confidence = score / (Σ|word| + 1.5·#words) + 0.25;  accept best if ≥ 0.5, else return alternatives</pre>
+<p><strong>Correctness:</strong> failure[i] is the longest proper border of P[0..i]. On a mismatch, falling back to the border keeps every alignment that could still match, so no occurrence is skipped (tested against <code>String.indexOf</code> on 500 random cases and for overlapping matches). <strong>Complexity:</strong> O(m) table and O(n + m) search, because j rises at most n times overall and each fallback lowers it. The naive matcher is O(n·m) on texts like "aaa…ab", which §6 shows. The parser never guesses: lines under the 50% threshold come back unmatched with trie alternatives.</p>
+
 <h3>4.2 Bloom filter with exact confirmation (Unit 6, CO5)</h3>
 <pre>m ← ⌈−n ln p / (ln 2)²⌉,  k ← round((m/n) ln 2),  salt ← random 64-bit
 h1 ← mix(fnv1a(key) ⊕ salt);  h2 ← mix(h1 + φ)
@@ -175,10 +187,12 @@ heldKarp: dp[S][v] = min_u dp[S\{v}][u] + d(u,v);  answer min_v dp[all][v] + d(v
 <p><strong>Correctness:</strong> after the 3-way partition, positions lt..gt hold exactly the pivot value, with smaller values to the left and larger to the right. So a[k] is final when lt ≤ k ≤ gt, and otherwise the k-th element lies in the side that is kept (loop invariant). <strong>Complexity:</strong> expected O(n). A uniformly random pivot lands in the middle half with probability ½, shrinking the range to at most ¾, so the expected work is a geometric series ≤ 4n·c. The 3-way partition keeps all-equal arrays, which are common for prices, linear. A plain Lomuto partition would be Θ(n²) on them. The deterministic first-pivot baseline is Θ(n²) on sorted input, as §6 shows. Used for per-item city median, min and max (deal score) and, as randomized quicksort, for Kruskal's edge order.</p>
 
 <h2><span class="n">5</span>Testing</h2>
-<p><span class="ok">49 JUnit 5 tests, all passing</span> (<code>./mvnw test</code>). Every core algorithm has at least five, each including a boundary or edge case:</p>
+<p><span class="ok">62 JUnit 5 tests, all passing</span> (<code>./mvnw test</code>). Every core algorithm has at least five, each including a boundary or edge case:</p>
 <div class="tw"><table>
 <tr><th>Class</th><th class="num">Tests</th><th>Edge / boundary / stress cases</th></tr>
 <tr><td>TrieTest</td><td class="num">8</td><td>empty prefix, missing prefix, mid-word substring not matched, k limit, invalid args, 2,000-name stress vs linear scan</td></tr>
+<tr><td>KmpTest</td><td class="num">6</td><td>classic failure tables, overlapping matches, 500 random cases vs String.indexOf, empty text / pattern longer than text, 2M-char adversarial text in linear time</td></tr>
+<tr><td>ListParserTest</td><td class="num">7</td><td>Hinglish WhatsApp message, qty forms (x4, "do", 5 pcs, 5kg kept as size), brand → generic, exact match, unknown item not guessed, ambiguous → alternatives, empty / too long</td></tr>
 <tr><td>BloomFilterTest</td><td class="num">7</td><td>empty filter, sizing formula (m=9586, k=7), saturated 16-bit filter, no false negatives on 5,000 keys, observed FP vs theory on 200k probes</td></tr>
 <tr><td>RandomizedSelectTest</td><td class="num">7</td><td>every rank vs sort, single element, 200k all-duplicates (linear time), percentile 0/100, caller array untouched, empty / out-of-range k</td></tr>
 <tr><td>SetCoverTest</td><td class="num">7</td><td>empty universe, uncoverable element reported, classic greedy trap within H(n), exact DP vs 2<sup>m</sup> brute force on 30 instances, λ behaviour, invalid input</td></tr>
@@ -203,6 +217,13 @@ heldKarp: dp[S][v] = min_u dp[S\{v}][u] + d(u,v);  answer min_v dp[all][v] + d(v
 <tr><td class="num">0.1%</td><td class="num">0.103%</td><td class="num">0.100%</td><td class="num">10</td><td class="num">176</td></tr></table></div>
 <p>A HashSet of the same keys is ≈ 6.1 MB (53× larger at 1%). Lookup is about 2× slower (≈ 20 ns vs 11 ns), so the benefit is memory, not speed. No false negatives in any run.</p></div>
 </div>
+<h3>KMP vs naive matching (ms, pattern "a×199 b")</h3>
+<div class="tw"><table>
+<tr><th class="num">n</th><th class="num">KMP adversarial</th><th class="num">naive adversarial</th><th class="num">KMP random</th><th class="num">naive random</th><th class="num">speed-up</th></tr>
+<tr><td class="num">50,000</td><td class="num">1.43</td><td class="num">7.57</td><td class="num">0.51</td><td class="num">0.46</td><td class="num">5.3×</td></tr>
+<tr><td class="num">200,000</td><td class="num">0.51</td><td class="num">30.70</td><td class="num">0.25</td><td class="num">0.26</td><td class="num">60.4×</td></tr>
+<tr><td class="num">800,000</td><td class="num">2.04</td><td class="num">122.41</td><td class="num">1.05</td><td class="num">1.07</td><td class="num">59.9×</td></tr></table></div>
+<p>On ordinary text both run at the same speed. KMP's advantage appears only on adversarial or repetitive input, where it removes the n·m blow-up. The paste parser itself handles a 9-line Hinglish message in about 2 ms.</p>
 <h3>Randomized vs first-pivot quickselect (ms)</h3>
 <div class="tw"><table>
 <tr><th>input</th><th class="num">n</th><th class="num">randomized</th><th class="num">first-pivot</th><th class="num">sort + pick</th></tr>
@@ -239,7 +260,8 @@ heldKarp: dp[S][v] = min_u dp[S\{v}][u] + d(u,v);  answer min_v dp[all][v] + d(v
 </table></div>
 <p>Bloom pre-screen on this request: 360 shop × item checks, 306 rejected by a zero bit, 4 false positives caught by the exact check (observed 1.29% vs 0.99% theoretical), total 0.10 ms. The route was confirmed optimal by Held-Karp (ratio 1.000).</p>
 
-<figure style="max-width:62%;margin-inline:auto"><img src="screenshots/plan-light.png" alt="Sweep plan view with route and receipt"><figcaption>Plan view after a run: route on the Powai map, totals, the printed pick-list and the baseline comparison.</figcaption></figure>
+<div class="two"><figure><img src="screenshots/paste-list.png" alt="Paste a list dialog"><figcaption>Paste a list: Hinglish and brand names resolved by trie + KMP with confidence scores.</figcaption></figure>
+<figure><img src="screenshots/city3d-night.png" alt="3D night city with route"><figcaption>3D city (night): procedural Powai, store beacons, light-trail route after the fly-through.</figcaption></figure></div>
 
 
 <h2><span class="n">7</span>Limitations and failure cases</h2>
@@ -249,6 +271,7 @@ heldKarp: dp[S][v] = min_u dp[S\{v}][u] + d(u,v);  answer min_v dp[all][v] + d(v
 <li><strong>Single-shop purchase per item.</strong> If no open shop has the full quantity but several together do, Sweep reports the item as unmet instead of splitting it. This is a deliberate simplification, and splitting would be a max-flow extension.</li>
 <li><strong>Exact baselines are bounded</strong> to n ≤ 16 (set cover) and ≤ 13 nodes (Held-Karp). Above that, only the bounds are reported.</li>
 <li><strong>Bloom filters are static.</strong> Removing an item would need a counting Bloom filter. Sketches are rebuilt at load time.</li>
+<li><strong>Paste parser vocabulary.</strong> The alias table covers common Hindi, Marathi and brand words. Unknown slang falls back to trie prefixes and is flagged, never guessed.</li>
 <li><strong>Synthetic data.</strong> Prices and stock are generated, not scraped, so no real shop's prices are represented.</li>
 </ul>
 
@@ -256,7 +279,7 @@ heldKarp: dp[S][v] = min_u dp[S\{v}][u] + d(u,v);  answer min_v dp[all][v] + d(v
 <p>Individual submission (team of one). All design, implementation, testing and documentation by the author.</p>
 <div class="tw"><table>
 <tr><th>Member</th><th>Algorithms / modules</th><th>Other work</th></tr>
-<tr><td>Shantanu Puthran (2405111)</td><td>All: Trie, BloomFilter, SetCover (greedy + DP), MetricTsp, DisjointSet, RandomizedSelect, PlannerService</td><td>REST API and validation, BenchmarkService, frontend, dataset generator, tests, README, report</td></tr>
+<tr><td>Shantanu Puthran (2405111)</td><td>All: Trie, KMP + ListParser, BloomFilter, SetCover (greedy + DP), MetricTsp, DisjointSet, RandomizedSelect, PlannerService</td><td>REST API and validation, BenchmarkService, 2D/3D frontend, Maps/WhatsApp hand-off, dataset generator, tests, README, report</td></tr>
 </table></div>
 <p class="eyebrow" style="margin-top:2rem">Repository: run <code>./mvnw spring-boot:run</code> and open localhost:8080. Full setup in README.md.</p>
 </article>
