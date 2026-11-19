@@ -78,6 +78,8 @@ async function boot() {
     showError("Can't reach the Java backend.", ["Start it with ./mvnw spring-boot:run, then reload this page."]);
   }
   renderPipeline();
+  bindPaste();
+  bind3D();
   route();
 }
 
@@ -87,7 +89,7 @@ function initTheme() {
   $("#themeBtn").addEventListener("click", () => {
     const cur = document.documentElement.dataset.theme || (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
     const next = cur === "dark" ? "light" : "dark";
-    const apply = () => { document.documentElement.dataset.theme = next; };
+    const apply = () => { document.documentElement.dataset.theme = next; if (City3D.city) City3D.city.setTheme(next === "dark"); };
     document.startViewTransition && !REDUCED ? document.startViewTransition(apply) : apply();
     try { localStorage.setItem("sweep-theme", next); } catch { }
   });
@@ -128,6 +130,12 @@ const ROADS = [
   { name: "", w: 4, pts: [[4.05, 5.2], [4.1, 5.6], [3.9, 6]] }
 ];
 const LAKE = [[1.78, 2.95], [1.85, 2.6], [2.1, 2.42], [2.45, 2.38], [2.75, 2.5], [2.95, 2.78], [2.92, 3.12], [2.75, 3.4], [2.45, 3.55], [2.12, 3.5], [1.9, 3.3]];
+const PARKS = [
+  [[2.0, 0.35], [3.3, 0.2], [4.2, 0.35], [3.9, 1.2], [3.1, 1.75], [2.2, 1.7], [1.7, 1.05]],
+  [[0.1, 0.1], [1.2, 0.15], [1.4, 0.8], [0.6, 1.0], [0.1, 0.8]],
+  [[5.3, 3.75], [5.7, 3.6], [5.85, 3.85], [5.5, 4.05]]
+];
+const AREA_LABELS = [["Powai Lake", 2.36, 3.02, "water"], ["IIT Bombay", 2.95, 0.95], ["Hiranandani", 4.95, 3.28], ["Chandivali", 6.75, 2.05], ["Kanjurmarg W", 0.62, 3.95], ["Raheja Vihar", 7.1, 3.0], ["Saki Vihar", 6.4, 4.6], ["Vihar Woods", 0.6, 0.55]];
 const smooth = pts => { // closed Catmull-Rom -> cubic bezier
   const p = pts.map(([x, y]) => [x * PX, y * PX]); let d = `M${p[0]}`;
   for (let i = 0; i < p.length; i++) {
@@ -140,9 +148,7 @@ const polyD = pts => "M" + pts.map(([x, y]) => `${x * PX},${y * PX}`).join("L");
 
 function drawTerrain() {
   const t = $("#terrain"), r = $("#roads"), l = $("#labels");
-  svg("path", { d: smooth([[2.0, 0.35], [3.3, 0.2], [4.2, 0.35], [3.9, 1.2], [3.1, 1.75], [2.2, 1.7], [1.7, 1.05]]), class: "park" }, t);
-  svg("path", { d: smooth([[0.1, 0.1], [1.2, 0.15], [1.4, 0.8], [0.6, 1.0], [0.1, 0.8]]), class: "park" }, t);
-  svg("path", { d: smooth([[5.3, 3.75], [5.7, 3.6], [5.85, 3.85], [5.5, 4.05]]), class: "park" }, t);
+  PARKS.forEach(p => svg("path", { d: smooth(p), class: "park" }, t));
   svg("path", { d: smooth(LAKE), class: "lake" }, t);
   if (!REDUCED) for (let i = 0; i < 3; i++) {
     const c = svg("ellipse", { cx: 237, cy: 297, rx: 30, ry: 20, class: "lake-ripple" }, t);
@@ -169,8 +175,7 @@ function drawTerrain() {
       tx.textContent = rd.name;
     }
   });
-  [["Powai Lake", 2.36, 3.02, "water"], ["IIT Bombay", 2.95, 0.95], ["Hiranandani", 4.95, 3.28], ["Chandivali", 6.75, 2.05], ["Kanjurmarg W", 0.62, 3.95], ["Raheja Vihar", 7.1, 3.0], ["Saki Vihar", 6.4, 4.6], ["Vihar Woods", 0.6, 0.55]]
-    .forEach(([txt, x, y, c]) => { const e = svg("text", { x: x * PX, y: y * PX, class: "map-label " + (c || ""), "text-anchor": "middle" }, l); e.textContent = txt; });
+  AREA_LABELS.forEach(([txt, x, y, c]) => { const e = svg("text", { x: x * PX, y: y * PX, class: "map-label " + (c || ""), "text-anchor": "middle" }, l); e.textContent = txt; });
 }
 
 /* ================================================================ map: stores, home */
@@ -242,6 +247,7 @@ function setHomeFromEvent(e, done) {
   const p = svgPoint(e);
   S.home = { x: +clamp(p.x / PX, 0.05, 7.95).toFixed(2), y: +clamp(p.y / PX, 0.05, 5.95).toFixed(2) };
   placeHome();
+  if (City3D.city) City3D.city.setHome(S.home);
   if (done) { clearRoute(); ticker("HOME", `Home set at ${S.home.x.toFixed(2)} km E, ${S.home.y.toFixed(2)} km S. Press Sweep it.`); }
 }
 
@@ -356,7 +362,7 @@ async function runPlan() {
   hideError();
   const m = MODES[S.mode];
   const body = {
-    home: S.home, hour: S.hour, lambda: S.lambda, stopCost: S.stopCost, kmCost: m.kmCost, speedKmh: m.speed,
+    home: S.home, hour: S.hour, lambda: S.lambda, stopCost: S.stopCost, kmCost: m.kmCost, speedKmh: m.speed, mode: S.mode,
     items: S.list.map(l => ({ name: l.name, qty: l.qty }))
   };
   const btn = $("#goBtn"); btn.classList.add("busy"); S.running = true;
@@ -372,11 +378,14 @@ async function runPlan() {
     ticker("ERROR", e.message);
   } finally {
     btn.classList.remove("busy"); S.running = false;
+    $("#flyBtn").hidden = !(City3D.on && S.plan && S.plan.stops.length);
+    if (City3D.on && City3D.city && S.plan && S.plan.stops.length && !REDUCED) setTimeout(() => City3D.city.flyThrough(), 600);
     $("#goSub").textContent = "run again with new settings";
   }
 }
 
 function clearRoute() {
+  if (City3D.city) City3D.city.setPlan(null);
   ["#mstLayer", "#routeLayer", "#ringLayer", "#flyLayer", "#runnerLayer"].forEach(s => { $(s).innerHTML = ""; $(s).getAnimations().forEach(a => a.cancel()); });
   $$(".store").forEach(g => g.classList.remove("dim", "chosen"));
   $$(".store-badge-num").forEach(e => e.remove());
@@ -431,6 +440,7 @@ async function choreograph(plan, runId) {
   if (!alive()) return;
 
   // ---- 4. Tour
+  if (City3D.city) City3D.city.setPlan(plan);
   const ord = plan.route.order.map(P);
   const pts = [...ord, S.home];
   const d = "M" + pts.map(p => `${p.x * PX},${p.y * PX}`).join("L");
@@ -534,7 +544,7 @@ function renderResults(plan) {
   rc.classList.remove("printing"); void rc.offsetWidth; rc.classList.add("printing");
   rc.innerHTML = `<h3>SWEEP · POWAI</h3><p class="meta">${now.toLocaleDateString("en-IN")} · leave ${String(plan.hour).padStart(2, "0")}:00 · ${MODES[S.mode].label}</p>` +
     plan.stops.map((s, i) => `<div class="r-stop"><div class="r-stop-head"><span>${i + 1}. ${esc(s.name)}</span><span>${fmtINR(s.subtotal)}</span></div>
-      <div class="r-stop-sub">${esc(s.type)} · +${s.legKm.toFixed(2)} km · arrive ~${s.etaMin} min</div>
+      <div class="r-stop-sub">${esc(s.type)} · +${s.legKm.toFixed(2)} km · arrive ~${s.arrival}${s.closingRisk ? `<span class="r-warn">closes ${s.closesAt}:00</span>` : ""}</div>
       ${s.picks.map(p => { const cls = p.dealScore <= .34 ? "good" : p.dealScore >= .67 ? "bad" : "meh"; const lab = { good: "steal", meh: "fair", bad: "pricey" }[cls];
       return `<div class="r-line"><span>${p.qty}× ${esc(p.item)}<span class="r-deal ${cls}">${lab}</span></span><span>${fmtINR(p.price * p.qty)}</span></div>`; }).join("")}</div>`).join("") +
     `<hr><div class="r-line" style="padding:0"><span>Basket</span><span>${fmtINR(T.basket)}</span></div>
@@ -553,6 +563,7 @@ function renderResults(plan) {
     : `<p class="verdict">For this list Sweep <em>ties</em> with the best simple strategy. Longer lists with overlapping shops show bigger gains.</p>`) +
     plan.alternatives.map((a, i) => `<div class="cmp ${i === 0 ? "win" : ""}"><div class="cmp-head"><b>${esc(a.name)}</b><span class="mono">${fmtINR(a.total)} · ${a.stops} stops · ${a.km.toFixed(1)} km · ${a.minutes} min</span></div>
       <div class="cmp-track"><div class="cmp-fill" style="width:${a.total / max * 100}%;animation-delay:${i * .15}s"></div></div><div class="cmp-desc">${esc(a.description)} · basket ${fmtINR(a.basket)}</div></div>`).join("");
+  renderShare(plan);
   $("#unmet").innerHTML = plan.unmet.map(u => `<div class="unmet"><b>Can't get ${esc(u.item)}:</b> ${esc(u.reason)}</div>`).join("") +
     plan.notices.map(n => `<p class="notice">Note: ${esc(n)}</p>`).join("");
 }
@@ -661,6 +672,7 @@ function drawRouteMini(plan) {
 /* ================================================================ Lab */
 const BENCH = [
   { id: "trie", title: "Autocomplete: trie vs. linear scan", q: "Average time per prefix query, top 8 matches, synthetic two-word names." },
+  { id: "kmp", title: "Paste parser core: KMP vs. naive matching", q: "Adversarial text “aaaa…ab” with pattern “a×199 b”, and random text. KMP never re-reads the text." },
   { id: "bloom", title: "Bloom filter: observed vs. theoretical false positives", q: "100,000 non-member probes per configuration. Memory compared with a HashSet." },
   { id: "select", title: "Randomized quickselect vs. first-pivot vs. sort", q: "Finding the median (random input) or maximum (sorted input). The sorted case is the adversarial one." },
   { id: "setcover", title: "Greedy set cover vs. exact DP", q: "20 random instances per size, 30 candidate stores. Exact = DP over 2ⁿ subsets." },
@@ -687,6 +699,9 @@ const BENCH_RENDER = {
   trie: rows => barChart({ groups: rows.map(r => "n = " + r.n.toLocaleString()), series: [{ name: "Trie", color: C1, values: rows.map(r => r.trieNsPerQuery) }, { name: "Linear scan", color: C2, values: rows.map(r => r.scanNsPerQuery) }], unit: "ns / query" }) +
     `<p class="takeaway">At 100k names the trie answers <b>${rows[2].speedup}×</b> faster. Its cost depends on prefix length and matches found, while the scan's cost grows with the catalogue.</p>` +
     tbl(["n", "trie ns", "scan ns", "speed-up", "trie nodes"], rows.map(r => [r.n.toLocaleString(), r.trieNsPerQuery, r.scanNsPerQuery, r.speedup + "×", r.trieNodes.toLocaleString()])),
+  kmp: rows => lineChart({ series: [{ name: "KMP (adversarial)", color: C1, points: rows.map(r => [r.n, r.kmpAdversarialMs]) }, { name: "Naive (adversarial)", color: C4, points: rows.map(r => [r.n, r.naiveAdversarialMs]) }, { name: "KMP (random)", color: C5, points: rows.map(r => [r.n, r.kmpRandomMs]) }, { name: "Naive (random)", color: C2, points: rows.map(r => [r.n, r.naiveRandomMs]) }], logX: true, logY: true, xLabel: "n", yLabel: "ms" }) +
+    `<p class="takeaway">On adversarial text the naive matcher does about n×m work. KMP stays O(n + m) and is <b>${rows[2].speedup}× faster</b> at n = ${rows[2].n.toLocaleString()}. On ordinary text both finish in about the same time, so KMP helps when the input is adversarial.</p>` +
+    tbl(["n", "m", "KMP adv ms", "naive adv ms", "KMP rnd ms", "naive rnd ms", "speed-up"], rows.map(r => [r.n.toLocaleString(), r.m, r.kmpAdversarialMs, r.naiveAdversarialMs, r.kmpRandomMs, r.naiveRandomMs, r.speedup + "×"])),
   bloom: rows => {
     const big = rows.filter(r => r.n === 100000);
     return barChart({ groups: big.map(r => "target " + (r.targetFp * 100) + "%"), series: [{ name: "Observed", color: C1, values: big.map(r => r.observedFp * 100) }, { name: "Theory (1−e^−kn/m)^k", color: C3, values: big.map(r => r.theoreticalFp * 100) }], unit: "% false positives (n = 100k)" }) +
@@ -760,7 +775,7 @@ function fmtNum(v) {
 /* ================================================================ how-it-works */
 function renderPipeline() {
   const steps = [
-    ["Type your list", "A trie over every word start finds “dal” inside “Toor Dal 1kg” in microseconds.", "Trie · Unit 4"],
+    ["Type or paste your list", "A trie over every word start finds “dal” inside “Toor Dal 1kg”. Paste a WhatsApp message and KMP scores each line against trie candidates, so “2 doodh, dolo, surf excel” becomes real items.", "Trie + KMP · Unit 4"],
     ["Screen 36 shops", "Each shop's stock is a few-hundred-bit Bloom sketch. A zero bit rules a shop out instantly, and every “maybe” is checked against real inventory.", "Bloom filter · Unit 6"],
     ["Pick the fewest shops", "Greedy weighted set cover chooses the shops with the lowest cost per item still needed, then checks itself against an exact DP.", "Set cover · Unit 5"],
     ["Order the stops", "A minimum spanning tree (Kruskal with union-find) becomes a tour at most 2× optimal, and 2-opt uncrosses it.", "Metric TSP · Units 2 & 5"],
@@ -807,6 +822,91 @@ function tickFx() {
     ctx.save(); ctx.globalAlpha = Math.max(0, p.life); ctx.translate(p.x, p.y); ctx.rotate(p.rot); ctx.fillStyle = p.c; ctx.fillRect(-p.size / 2, -p.size / 2, p.size, p.size * .6); ctx.restore();
   }
   if (parts.length) requestAnimationFrame(tickFx); else { fxRunning = false; ctx.clearRect(0, 0, innerWidth, innerHeight); }
+}
+
+/* ================================================================ paste a list */
+function bindPaste() {
+  const dlg = $("#pasteDlg"), ta = $("#pasteText");
+  let parsed = [];
+  $("#pasteBtn").addEventListener("click", () => { dlg.showModal(); ta.focus(); });
+  $("#pasteExample").addEventListener("click", () => { ta.value = ta.placeholder; ta.focus(); });
+  $("#pasteRead").addEventListener("click", async () => {
+    const box = $("#parsed");
+    if (!ta.value.trim()) { box.innerHTML = `<p class="err">Paste or type a list first.</p>`; return; }
+    box.innerHTML = `<div class="skel" style="height:120px"></div>`;
+    try {
+      const r = await api("/parse", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ text: ta.value }) });
+      parsed = r.lines.map(l => ({ ...l, chosen: l.item }));
+      renderParsed();
+      $("#parseStat").textContent = `${r.matched} matched · ${r.unmatched} need a look · ${(r.nanos / 1e6).toFixed(2)} ms on the server`;
+      $("#pasteAddRow").hidden = false;
+    } catch (e) { box.innerHTML = `<p class="err">${esc(e.message)}${(e.details || []).map(d => "<br>" + esc(d)).join("")}</p>`; }
+  });
+  function renderParsed() {
+    $("#parsed").innerHTML = parsed.map((l, i) => `<div class="pl ${l.chosen ? "" : "miss"}" style="animation-delay:${i * 40}ms" data-i="${i}">
+      <span class="pl-q">${l.qty}×</span>
+      <div class="pl-main"><span class="pl-raw">“${esc(l.raw)}”</span>
+        <span class="pl-item">${l.chosen ? esc(l.chosen) : "Not sure what this is"}${l.chosen && l.chosen === l.item ? `<span class="tagm">${esc(l.matchedBy)}</span>` : ""}</span>
+        ${l.alternatives.length ? `<div class="pl-alts">${[l.item, ...l.alternatives].filter(Boolean).map(a => `<button type="button" class="${a === l.chosen ? "on" : ""}" data-alt="${esc(a)}">${esc(a)}</button>`).join("")}${l.chosen ? `<button type="button" data-alt="">skip</button>` : ""}</div>` : ""}
+      </div>
+      <span class="conf">${l.chosen ? Math.round(l.confidence * 100) + "%" : "—"}<i style="--c:${Math.round(l.confidence * 100)}%"></i></span></div>`).join("") || `<p class="muted">Nothing that looks like an item.</p>`;
+  }
+  $("#parsed").addEventListener("click", e => {
+    const b = e.target.closest("[data-alt]"); if (!b) return;
+    const i = +b.closest(".pl").dataset.i; parsed[i].chosen = b.dataset.alt || null; renderParsed();
+  });
+  $("#pasteAdd").addEventListener("click", () => {
+    const picks = parsed.filter(l => l.chosen);
+    picks.forEach(l => {
+      const it = S.itemByName[l.chosen.toLowerCase()]; if (!it) return;
+      const ex = S.list.find(x => x.name === it.name);
+      if (ex) ex.qty = Math.min(50, ex.qty + l.qty); else S.list.push({ name: it.name, qty: l.qty, category: it.category });
+    });
+    renderList(); dlg.close();
+    toast(`Added ${picks.length} item${picks.length === 1 ? "" : "s"} from your message.`);
+    burst($("#list").getBoundingClientRect(), null, 40);
+  });
+}
+
+/* ================================================================ share */
+function renderShare(plan) {
+  const box = $("#share");
+  if (!plan.stops.length || !plan.share) { box.hidden = true; return; }
+  box.hidden = false;
+  $("#mapsLink").href = plan.share.mapsUrl;
+  $("#waLink").href = "https://wa.me/?text=" + encodeURIComponent(plan.share.text);
+  $("#copyBtn").onclick = async () => {
+    try { await navigator.clipboard.writeText(plan.share.text); toast("Plan copied. Paste it anywhere."); }
+    catch { toast("Copy blocked by the browser. Use the WhatsApp button instead."); }
+  };
+}
+
+/* ================================================================ 3D city */
+const City3D = { city: null, loading: null, on: false };
+function bind3D() {
+  const wrap = $("#mapWrap"), host = $("#city3d");
+  $("#viewCtl .seg").addEventListener("click", async e => {
+    const b = e.target.closest("button"); if (!b) return;
+    const on = b.dataset.v === "3d";
+    $$("#viewCtl .seg button").forEach(x => x.setAttribute("aria-checked", x === b));
+    City3D.on = on; wrap.classList.toggle("is3d", on); host.hidden = !on;
+    $("#resetBtn").hidden = !on; $("#flyBtn").hidden = !(on && S.plan && S.plan.stops.length);
+    if (!on) { ticker("2D", "Back to the map. Drag the home pin to move."); return; }
+    if (!City3D.city) {
+      host.innerHTML = `<div class="city-loading">Building Powai in 3D…</div>`;
+      try {
+        const mod = await (City3D.loading ||= import("./city3d.js"));
+        host.innerHTML = "";
+        const dark = (document.documentElement.dataset.theme || (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light")) === "dark";
+        City3D.city = mod.createCity(host, { stores: S.stores, home: S.home, typeColor: TYPE_COLOR, roads: ROADS, lake: LAKE, parks: PARKS, labels: AREA_LABELS.map(([t, x, y]) => [t, x, y]), dark, reduced: REDUCED });
+        City3D.city.onFlyEnd(() => ticker("3D", "Fly-through done. Drag to orbit, scroll to zoom, shift-drag to pan."));
+      } catch (err) { host.innerHTML = `<div class="city-loading">3D needs WebGL, which this browser can't provide. The 2D map still works.</div>`; return; }
+    }
+    if (S.plan) City3D.city.setPlan(S.plan);
+    ticker("3D", S.plan && S.plan.stops.length ? "Your route in 3D. Press ▶ Fly the route, or drag to orbit." : "Powai in 3D. Taller towers sit around Hiranandani and Chandivali. Drag to orbit.");
+  });
+  $("#flyBtn").addEventListener("click", () => { if (City3D.city && City3D.city.flyThrough()) ticker("FLY", "Flying the planned loop: home → " + S.plan.stops.map(s => s.name).join(" → ") + " → home"); });
+  $("#resetBtn").addEventListener("click", () => City3D.city && City3D.city.resetView());
 }
 
 boot();

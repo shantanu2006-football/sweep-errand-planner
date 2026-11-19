@@ -50,6 +50,10 @@
       <ul class="suggest" id="suggestList" role="listbox" hidden></ul>
     </div>
     <p class="trie-meter mono" id="trieMeter">Trie index ready · type to search 176 items</p>
+    <button class="paste-btn" id="pasteBtn" type="button">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 4h8v3H8zM6 6H5a1 1 0 0 0-1 1v13a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1V7a1 1 0 0 0-1-1h-1"/><path d="M8 12h8M8 16h5"/></svg>
+      <span><b>Paste a WhatsApp list</b><small>“2 doodh, ande, dolo, 3 copy” works</small></span>
+    </button>
 
     <div class="presets" id="presets" aria-label="Example lists"></div>
 
@@ -113,6 +117,15 @@
         </div>
         <div class="coord mono" id="coord" aria-hidden="true">— km E · — km S</div>
       </div>
+      <div class="view-ctl" id="viewCtl">
+        <div class="seg seg-sm" role="radiogroup" aria-label="Map view">
+          <button role="radio" data-v="2d" aria-checked="true">2D</button>
+          <button role="radio" data-v="3d" aria-checked="false">3D city</button>
+        </div>
+        <button class="ctl-btn" id="flyBtn" hidden>▶ Fly the route</button>
+        <button class="ctl-btn" id="resetBtn" hidden>Reset view</button>
+      </div>
+      <div class="city3d-wrap" id="city3d" hidden></div>
       <div class="legend" id="legend"></div>
       <div class="scale-bar mono" aria-hidden="true"><span></span>1 km</div>
       <div class="store-card" id="storeCard" hidden></div>
@@ -136,6 +149,15 @@
           <p class="eyebrow">Compared with how most people shop</p>
           <div id="compareBars"><p class="muted">Run a plan to compare it against two common strategies.</p></div>
           <div id="unmet"></div>
+          <div class="share" id="share" hidden>
+            <p class="eyebrow">Take it with you</p>
+            <div class="share-row">
+              <a class="share-btn maps" id="mapsLink" href="#" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a7 7 0 0 0-7 7c0 5 7 13 7 13s7-8 7-13a7 7 0 0 0-7-7z"/><circle cx="12" cy="9" r="2.5"/></svg>Directions in Google Maps</a>
+              <a class="share-btn wa" id="waLink" href="#" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20l1.3-4A8 8 0 1 1 8 18.7z"/><path d="M9 9.5c.5 2 2.5 4 4.5 4.5l1-1 2 1c0 1-1 2-2 2-3.5 0-7-3.5-7-7 0-1 1-2 2-2l1 2z"/></svg>Send on WhatsApp</a>
+              <button class="share-btn" id="copyBtn" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M4 16V5a1 1 0 0 1 1-1h11"/></svg>Copy plan</button>
+            </div>
+            <p class="share-note">Shop positions are approximate (synthetic dataset). The link opens the full loop with every stop as a waypoint.</p>
+          </div>
         </div>
       </div>
     </div>
@@ -215,6 +237,7 @@
         <thead><tr><th>Stage</th><th>Algorithm</th><th>Unit</th><th>Time</th><th>Space</th><th>Guarantee</th></tr></thead>
         <tbody>
           <tr><td>Search</td><td>Trie over word-start suffixes</td><td>4 · CO3</td><td class="mono">O(|p| + V)</td><td class="mono">O(Σ chars)</td><td>Exact prefix matches</td></tr>
+          <tr><td>Paste a list</td><td>Trie candidates + KMP scoring, Hinglish/brand aliases</td><td>4 · CO3</td><td class="mono">O(n + m) per match</td><td class="mono">O(m)</td><td>Never guesses below 50% confidence</td></tr>
           <tr><td>Pre-screen</td><td>Bloom filter, double hashing, random salt</td><td>6 · CO5</td><td class="mono">O(k)</td><td class="mono">m bits</td><td>No false negatives; FP ≈ (1−e<sup>−kn/m</sup>)<sup>k</sup></td></tr>
           <tr><td>Store choice</td><td>Greedy weighted set cover</td><td>5 · CO4</td><td class="mono">O(m·n·picks)</td><td class="mono">O(m·n)</td><td>≤ H(n)·OPT when λ = 0</td></tr>
           <tr><td>Baseline</td><td>Exact set cover DP</td><td>5/6 · CO6</td><td class="mono">O(2ⁿ·m)</td><td class="mono">O(2ⁿ)</td><td>Optimal (n ≤ 16)</td></tr>
@@ -239,6 +262,26 @@
   </div>
 </section>
 </main>
+
+<dialog class="paste" id="pasteDlg" aria-labelledby="pasteTitle">
+  <form method="dialog" class="paste-inner" id="pasteForm">
+    <header>
+      <div><p class="eyebrow">Paste anything</p><h3 id="pasteTitle" class="display">Drop in the list mom sent</h3></div>
+      <button class="x" value="cancel" aria-label="Close">×</button>
+    </header>
+    <p class="paste-help">Hinglish, brand names, quantities, bullets, emojis: all fine. The Java backend finds candidates with the trie and scores them with KMP.</p>
+    <textarea id="pasteText" rows="7" spellcheck="false" placeholder="Beta aate waqt le aana:&#10;- 2 doodh&#10;- ande ek darjan&#10;- dolo 650&#10;- 3 copy&#10;- surf excel, harpic&#10;- kele aur chai patti"></textarea>
+    <div class="paste-actions">
+      <button type="button" class="btn ghost" id="pasteExample">Use example</button>
+      <button type="button" class="btn" id="pasteRead">Read list</button>
+    </div>
+    <div class="parsed" id="parsed"></div>
+    <div class="paste-actions" id="pasteAddRow" hidden>
+      <span class="mono muted" id="parseStat"></span>
+      <button type="button" class="btn" id="pasteAdd">Add to my list</button>
+    </div>
+  </form>
+</dialog>
 
 <div class="toast" id="toast" role="status" hidden></div>
 <script src="app.js"></script>
