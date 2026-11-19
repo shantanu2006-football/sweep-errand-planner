@@ -1,0 +1,265 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Sweep Technical Report</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500..800&family=Instrument+Sans:wght@400..700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: an A4 engineering report, single column, cobalt + marigold from the app. */
+:root {
+  --paper: #FFFFFF; --ink: #12222B; --ink-2: #44565D; --ink-3: #7C8D92; --rule: #D6DFDA; --tint: #EEF3F0;
+  --cobalt: #1F4BFF; --marigold: #FFB000; --good: #11875D; --bad: #C42B42;
+  --f-d: "Bricolage Grotesque", "Avenir Next", system-ui, sans-serif;
+  --f-b: "Instrument Sans", "Helvetica Neue", system-ui, sans-serif;
+  --f-m: "JetBrains Mono", ui-monospace, Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --paper: #0F1B20; --ink: #E4ECE8; --ink-2: #A9B9B6; --ink-3: #72868A; --rule: #26393F; --tint: #16262C;
+  --cobalt: #7D97FF; --marigold: #FFC23D; --good: #3FD39B; --bad: #FF7A8E; color-scheme: dark; } }
+:root[data-theme="dark"] { --paper: #0F1B20; --ink: #E4ECE8; --ink-2: #A9B9B6; --ink-3: #72868A; --rule: #26393F; --tint: #16262C;
+  --cobalt: #7D97FF; --marigold: #FFC23D; --good: #3FD39B; --bad: #FF7A8E; color-scheme: dark; }
+body { background: var(--paper); color: var(--ink); font: 400 15px/1.6 var(--f-b); margin: 0;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+.doc { max-width: 780px; margin: 0 auto; padding-block: 40px 80px; }
+h1, h2, h3 { font-family: var(--f-d); letter-spacing: -.015em; line-height: 1.15; text-wrap: balance; }
+h1 { font-size: 2.6rem; margin: .2rem 0 .4rem; font-weight: 800; }
+h2 { font-size: 1.45rem; margin: 2.2rem 0 .6rem; padding-top: .8rem; border-top: 2px solid var(--ink); display: flex; gap: .6rem; align-items: baseline; }
+h2 .n { font: 700 .85rem var(--f-m); color: var(--cobalt); }
+h3 { font-size: 1.08rem; margin: 1.3rem 0 .3rem; }
+p, li { color: var(--ink-2); max-width: 70ch; }
+strong { color: var(--ink); }
+.eyebrow { font: 600 .72rem var(--f-b); letter-spacing: .14em; text-transform: uppercase; color: var(--ink-3); margin: 0; }
+.sub { font-size: 1.1rem; color: var(--ink-2); margin: 0 0 1rem; }
+.meta { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: .6rem 1.2rem; padding: 1rem 0; border-block: 1px solid var(--rule); font-size: .85rem; }
+.meta b { display: block; font-size: .7rem; text-transform: uppercase; letter-spacing: .1em; color: var(--ink-3); font-weight: 600; }
+.hl { background: linear-gradient(transparent 62%, color-mix(in srgb, var(--marigold) 55%, transparent) 62%); color: var(--ink); }
+code, .mono { font-family: var(--f-m); font-size: .82em; }
+pre { font: 400 .78rem/1.55 var(--f-m); background: var(--tint); border-radius: 10px; padding: .9rem 1rem; overflow-x: auto; color: var(--ink); border-left: 3px solid var(--cobalt); }
+pre .c { color: var(--ink-3); }
+.tw { overflow-x: auto; margin: .8rem 0; }
+table { border-collapse: collapse; width: 100%; font-size: .82rem; }
+th, td { text-align: left; padding: .4rem .6rem; border-bottom: 1px solid var(--rule); vertical-align: top; }
+th { font-size: .68rem; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-3); font-weight: 600; }
+td.num, th.num { text-align: right; font-family: var(--f-m); font-variant-numeric: tabular-nums; }
+.callout { background: var(--tint); border-radius: 10px; padding: .8rem 1rem; margin: .8rem 0; }
+.callout p { margin: 0; }
+figure { margin: 1rem 0; }
+figure img { width: 100%; border-radius: 10px; border: 1px solid var(--rule); display: block; }
+figcaption { font-size: .78rem; color: var(--ink-3); margin-top: .35rem; }
+.arch { width: 100%; height: auto; }
+.arch rect { fill: var(--tint); stroke: var(--rule); }
+.arch .k { fill: color-mix(in srgb, var(--cobalt) 14%, var(--paper)); stroke: var(--cobalt); }
+.arch text { fill: var(--ink); font: 600 12px var(--f-b); }
+.arch .s { fill: var(--ink-3); font: 400 10.5px var(--f-m); }
+.arch line, .arch path { stroke: var(--ink-3); stroke-width: 1.5; fill: none; }
+.arch .ah { fill: var(--ink-3); stroke: none; }
+.two { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 1rem; }
+.ok { color: var(--good); font-weight: 600; }
+@media print {
+  @page { size: A4; margin: 13mm 14mm; }
+  body { font-size: 9.6pt; line-height: 1.45; padding: 0; }
+  .doc { max-width: none; padding: 0; }
+  h1 { font-size: 26pt; }
+  h2 { break-after: avoid; font-size: 14pt; margin-top: 1.1rem; }
+  pre { font-size: 7.6pt; padding: .6rem .8rem; }
+  table { font-size: 8.2pt; }
+  th, td { padding: .25rem .5rem; }
+  .arch { max-height: 200px; }
+  h3 { break-after: avoid; }
+  pre, table, figure, .callout, svg { break-inside: avoid; }
+  .pb { break-before: page; }
+}
+</style>
+</head>
+<body>
+<article class="doc">
+<p class="eyebrow">Advanced Algorithms · CIA 3 · B.Tech CS AI &amp; ML · Semester V · 2026–27</p>
+<h1>Sweep</h1>
+<p class="sub">One trip, every errand. An errand planner driven by a trie, Bloom filters, greedy set cover, a metric-TSP approximation and randomized selection.</p>
+<div class="meta">
+  <div><b>Team</b>Member 1 (ID) · Member 2 (ID) · Member 3 (ID)</div>
+  <div><b>Backend</b>Java 21, Spring Boot 4.1 REST</div>
+  <div><b>Frontend</b>HTML / CSS / vanilla JS</div>
+  <div><b>Evidence</b>49 JUnit tests · 5 live benchmarks</div>
+</div>
+
+<h2><span class="n">1</span>Problem statement</h2>
+<p>A typical week in a Mumbai suburb has a list that spans several kinds of shop: groceries from a supermarket, medicine from a chemist, a notebook from a stationer, a bulb from a hardware store. Most people take one of two approaches. They walk to the nearest shop, then the next nearest, until they've got everything. Or they chase the lowest price per item and criss-cross the suburb. The first overpays and the second wastes travel. Neither checks whether a shop is open or has enough stock.</p>
+<p><strong>Target user:</strong> a student or working resident of Powai planning a single errand run on foot, by cycle or by auto-rickshaw. <strong>Decision improved:</strong> which shops to visit, what to buy where, and in what order, so that basket price + travel cost + per-stop overhead is minimised.</p>
+<h3>Inputs, outputs and constraints</h3>
+<div class="tw"><table>
+<tr><th>Input</th><th>Constraint</th><th>Validation behaviour</th></tr>
+<tr><td>Home location (km grid)</td><td>0 ≤ x ≤ 8, 0 ≤ y ≤ 6</td><td>400 with message if outside</td></tr>
+<tr><td>Item lines</td><td>1–20 lines, qty 1–50, known item</td><td>Empty list rejected; unknown names get trie "did you mean"; duplicate lines merged with a notice</td></tr>
+<tr><td>Departure hour</td><td>0–23</td><td>Closed shops excluded; items only stocked at closed shops are reported with opening times</td></tr>
+<tr><td>λ (price weight), ₹/km, ₹/stop, speed</td><td>0–5, 0–100, 0–500, 3–60</td><td>All out-of-range values listed together in one 400 response</td></tr>
+</table></div>
+<p><strong>Output:</strong> an ordered list of stops with a pick-list per stop, prices, per-item deal score against the city median, totals (₹, km, minutes), two baseline strategies for comparison, and an algorithm trace: Bloom outcomes, set-cover steps, MST edges, preorder and final tours, and Held-Karp ratio. Items that cannot be bought are never dropped silently. Each is returned in <code>unmet</code> with the reason: not stocked anywhere, insufficient stock at any single open shop, or only stocked at closed shops.</p>
+<h3>Measurable success criteria</h3>
+<ul>
+<li>Every returned pick is genuinely stocked, with enough units, at the assigned shop. Asserted in tests for every plan.</li>
+<li>Zero Bloom false negatives, with observed false-positive rate within sampling error of (1 − e<sup>−kn/m</sup>)<sup>k</sup>.</li>
+<li>Set-cover cost ≤ H(n) · OPT (λ = 0), measured against the exact DP.</li>
+<li>Route length ≤ 2 · OPT, measured against Held-Karp. Target average gap below 5% after 2-opt.</li>
+<li>Total trip cost no worse than the "nearest store first" and "cheapest everywhere" strategies on the sample lists.</li>
+<li>Plan latency under 50 ms for a 20-item list on a laptop.</li>
+</ul>
+
+<h2><span class="n">2</span>Data</h2>
+<p>A seeded Python generator (<code>tools/generate_dataset.py</code>, seed 42) produces a <strong>realistic synthetic</strong> dataset committed to <code>data/</code>: 176 items in 12 categories with MRP-style base prices, 36 shops of 9 types (supermarket, kirana, pharmacy, bakery, fruit &amp; veg, stationery, hardware, electronics, pet) placed around real Powai localities, and 770 inventory listings. Each listing price = base × store-type multiplier × U(0.88, 1.15). Stock is 3–40, with about 6% deliberately set to 1–2 units so quantity feasibility matters. Opening hours vary, and some pharmacies are open 24 hours. Distances are straight-line × 1.3 road factor. Multiplying a metric by a positive constant keeps it a metric, so the triangle inequality the TSP bound relies on holds. <code>MetricTsp.validate</code> also checks it explicitly at run time.</p>
+
+<h2><span class="n">3</span>System design</h2>
+<svg class="arch" viewBox="0 0 760 300" role="img" aria-label="Architecture diagram">
+  <defs><marker id="a" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L8 4L0 8z" class="ah"/></marker></defs>
+  <rect x="10" y="20" width="170" height="260" rx="12"/><text x="24" y="44">Browser (static/)</text>
+  <text class="s" x="24" y="66">index.html · app.css</text><text class="s" x="24" y="82">app.js: list builder,</text><text class="s" x="24" y="98">SVG map, choreography,</text><text class="s" x="24" y="114">X-ray, Lab charts</text>
+  <text class="s" x="24" y="150">No algorithm runs here.</text><text class="s" x="24" y="166">Renders server output.</text>
+  <path d="M180 140 H238" marker-end="url(#a)"/><text class="s" x="186" y="130">JSON/REST</text>
+  <rect x="240" y="20" width="170" height="260" rx="12"/><text x="254" y="44">web/ApiController</text>
+  <text class="s" x="254" y="66">/api/suggest  /api/plan</text><text class="s" x="254" y="82">/api/bloom  /api/bench/*</text><text class="s" x="254" y="98">/api/stores  /api/items</text>
+  <text class="s" x="254" y="130">validation → 400 + all</text><text class="s" x="254" y="146">problems; 404 unknown ids</text>
+  <path d="M410 100 H468" marker-end="url(#a)"/><path d="M410 220 H468" marker-end="url(#a)"/>
+  <rect x="470" y="20" width="130" height="140" rx="12"/><text x="484" y="44">PlannerService</text>
+  <text class="s" x="484" y="66">1 resolve (trie)</text><text class="s" x="484" y="82">2 screen (bloom)</text><text class="s" x="484" y="98">3 cover (greedy)</text><text class="s" x="484" y="114">4 route (TSP)</text><text class="s" x="484" y="130">5 prices (select)</text>
+  <rect x="470" y="180" width="130" height="100" rx="12"/><text x="484" y="204">BenchmarkService</text><text class="s" x="484" y="226">seeded, warm-up,</text><text class="s" x="484" y="242">median of 5</text>
+  <path d="M600 90 H638" marker-end="url(#a)"/><path d="M600 230 H638" marker-end="url(#a)"/>
+  <rect x="640" y="20" width="110" height="200" rx="12" class="k"/><text x="652" y="44">algo/</text>
+  <text class="s" x="652" y="66">Trie</text><text class="s" x="652" y="82">BloomFilter</text><text class="s" x="652" y="98">SetCover</text><text class="s" x="652" y="114">MetricTsp</text><text class="s" x="652" y="130">DisjointSet</text><text class="s" x="652" y="146">RandomizedSelect</text>
+  <text class="s" x="652" y="178">pure Java, no deps</text>
+  <rect x="640" y="232" width="110" height="48" rx="12"/><text x="652" y="254">domain/City</text><text class="s" x="652" y="270">CSV → indexes</text>
+</svg>
+<p>The layers follow the brief's recommended architecture. <code>algo/</code> holds dependency-free, self-written implementations, using only <code>java.util</code> collections as support. <code>domain/City</code> loads the CSVs and builds the trie and one Bloom filter per shop at start-up. <code>service/</code> composes the algorithms into the pipeline. <code>web/</code> handles HTTP, input validation and error mapping. Spring provides infrastructure only. The frontend never computes a result. It sends the request and animates the trace the server returns.</p>
+
+<h2><span class="n">4</span>Algorithms, pseudocode and correctness</h2>
+<h3>4.1 Trie over word-start suffixes (Unit 4, CO3)</h3>
+<pre>insert(name, id):  for each position s where s = 0 or name[s-1] = ' ':
+                       walk/create nodes for name[s..]; add id at the last node
+suggest(p, k):     node ← walk p from root (fail → empty)
+                   DFS from node in character order with an explicit stack,
+                   collecting distinct ids until k are found</pre>
+<p><strong>Correctness:</strong> an id is reachable from prefix p if and only if some inserted suffix starts with p, which happens if and only if some word of the name starts with p. The stress test compares against a linear scan on 2,000 random names. <strong>Complexity:</strong> insert O(L²) worst case per name (O(L) per word suffix). Query O(|p| + V), where V is the number of nodes visited before k ids are found. It is independent of catalogue size N, while a scan is O(N·L).</p>
+
+<h3>4.2 Bloom filter with exact confirmation (Unit 6, CO5)</h3>
+<pre>m ← ⌈−n ln p / (ln 2)²⌉,  k ← round((m/n) ln 2),  salt ← random 64-bit
+h1 ← mix(fnv1a(key) ⊕ salt);  h2 ← mix(h1 + φ)
+a ← h1 mod m;  b ← 1 + (h2 mod (m−1))           <span class="c">// non-zero stride</span>
+positions(key) = { (a + i·b) mod m : i = 0..k−1 }   <span class="c">// Kirsch–Mitzenmacher</span>
+add: set all positions;   mightContain: all positions set?
+planner: if !mightContain → "definitely not";  else → look up real inventory</pre>
+<p><strong>Correctness:</strong> bits are only ever set, so an inserted key's k bits stay 1, and there are <strong>no false negatives</strong>. A test checks every inserted key, and the planner test checks that no "definitely not" shop actually stocks the item. A positive is treated as "possibly present" and always followed by the authoritative inventory lookup, as the brief requires. The false-positive probability after n inserts is (1 − e<sup>−kn/m</sup>)<sup>k</sup>, validated empirically in §6. The random salt makes the filters independent per shop and stops an adversary pre-computing colliding keys. <strong>Complexity:</strong> O(k) time per operation, m bits of space. A shop with 30 items at 1% needs about 288 bits (36 bytes) against kilobytes for a hash set. That is why a phone client could cache every shop's sketch offline.</p>
+
+<h3>4.3 Greedy weighted set cover (Unit 5, CO4) and exact DP baseline (CO6)</h3>
+<pre>U ← requested items coverable by some open shop; report the rest as unmet
+cost(j) = stopCost + kmCost · 2 · d(home, j)
+while U ≠ ∅:
+    j* ← argmin_j  (cost(j) + λ · Σ_{e ∈ S_j ∩ U} premium(j,e)) / |S_j ∩ U|
+    choose j*;  U ← U \ S_j*
+exact(n ≤ 16): dp[0]=0;  for mask ascending, for each j: dp[mask|S_j] ← min(dp[mask]+cost(j))</pre>
+<p><strong>Correctness / guarantee:</strong> the loop terminates because each pick covers at least one new element, and it covers every coverable element. With λ = 0 this is Chvátal's greedy, so cost ≤ H(n)·OPT with H(n) = Σ1/i ≤ ln n + 1. The proof charges each element the price-per-element at the moment it is covered, and the k-th last element costs at most OPT/k. With λ &gt; 0 the price-premium term turns it into a heuristic, and the app and API say so explicitly (<code>guaranteeApplies = false</code>). After choosing shops, each item is assigned to the cheapest chosen shop with enough stock. A shop left with no picks is dropped and a notice is returned. The DP is exact because every reachable mask is processed after all its subsets (masks only grow). <strong>Complexity:</strong> greedy O(m · n · picks). DP O(2ⁿ · m) time and O(2ⁿ) space. Set cover is NP-hard, so the exponential DP is a baseline only.</p>
+
+<h3>4.4 Metric TSP: double-tree + 2-opt (Units 2 and 5, CO2/CO4) and Held-Karp (CO6)</h3>
+<pre>edges ← all pairs; randomizedQuickSort(edges by weight)   <span class="c">// 3-way partition</span>
+DSU ← makeSets(n);  for e=(u,v) in order: if DSU.union(u,v): MST += e   <span class="c">// Kruskal</span>
+tour ← preorder(MST from home), skipping visited vertices        <span class="c">// shortcutting</span>
+repeat until no improvement:                                       <span class="c">// 2-opt</span>
+    for i&lt;j: if d(t[i-1],t[j]) + d(t[i],t[j+1]) &lt; d(t[i-1],t[i]) + d(t[j],t[j+1]): reverse t[i..j]
+heldKarp: dp[S][v] = min_u dp[S\{v}][u] + d(u,v);  answer min_v dp[all][v] + d(v,0)</pre>
+<p><strong>Correctness:</strong> Kruskal's MST is minimal by the cut property, and union by rank with path compression rejects exactly the cycle-forming edges. A full walk of the MST costs 2·w(MST). Shortcutting repeated vertices never increases length by the triangle inequality. Since deleting one edge of the optimal tour gives a spanning tree, w(MST) ≤ OPT, so tour ≤ 2·OPT. 2-opt only accepts strictly improving swaps, so it keeps the bound and terminates. <code>validate()</code> rejects non-square, negative, asymmetric or triangle-violating matrices. <strong>Complexity:</strong> O(n² log n) for sorting n(n−1)/2 edges, plus O(n² α(n)) for the DSU work, plus O(n²) per 2-opt pass. Space O(n²). Held-Karp takes O(n² 2ⁿ) time and O(n 2ⁿ) space and runs only for trips of up to 12 stops.</p>
+
+<h3>4.5 Randomized quickselect and quicksort (Unit 6, CO5)</h3>
+<pre>select(a, k): lo,hi ← 0,n−1
+  loop: pivot ← a[random(lo..hi)];  (lt, gt) ← partition3(a, lo, hi, pivot)
+        if k &lt; lt: hi ← lt−1  elif k &gt; gt: lo ← gt+1  else return a[k]</pre>
+<p><strong>Correctness:</strong> after the 3-way partition, positions lt..gt hold exactly the pivot value, with smaller values to the left and larger to the right. So a[k] is final when lt ≤ k ≤ gt, and otherwise the k-th element lies in the side that is kept (loop invariant). <strong>Complexity:</strong> expected O(n). A uniformly random pivot lands in the middle half with probability ½, shrinking the range to at most ¾, so the expected work is a geometric series ≤ 4n·c. The 3-way partition keeps all-equal arrays, which are common for prices, linear. A plain Lomuto partition would be Θ(n²) on them. The deterministic first-pivot baseline is Θ(n²) on sorted input, as §6 shows. Used for per-item city median, min and max (deal score) and, as randomized quicksort, for Kruskal's edge order.</p>
+
+<h2><span class="n">5</span>Testing</h2>
+<p><span class="ok">49 JUnit 5 tests, all passing</span> (<code>./mvnw test</code>). Every core algorithm has at least five, each including a boundary or edge case:</p>
+<div class="tw"><table>
+<tr><th>Class</th><th class="num">Tests</th><th>Edge / boundary / stress cases</th></tr>
+<tr><td>TrieTest</td><td class="num">8</td><td>empty prefix, missing prefix, mid-word substring not matched, k limit, invalid args, 2,000-name stress vs linear scan</td></tr>
+<tr><td>BloomFilterTest</td><td class="num">7</td><td>empty filter, sizing formula (m=9586, k=7), saturated 16-bit filter, no false negatives on 5,000 keys, observed FP vs theory on 200k probes</td></tr>
+<tr><td>RandomizedSelectTest</td><td class="num">7</td><td>every rank vs sort, single element, 200k all-duplicates (linear time), percentile 0/100, caller array untouched, empty / out-of-range k</td></tr>
+<tr><td>SetCoverTest</td><td class="num">7</td><td>empty universe, uncoverable element reported, classic greedy trap within H(n), exact DP vs 2<sup>m</sup> brute force on 30 instances, λ behaviour, invalid input</td></tr>
+<tr><td>MetricTspTest</td><td class="num">6</td><td>n = 1, 2, duplicate points, 2× bound on 40 instances, MST vs Prim, Held-Karp vs permutation brute force, non-metric rejection</td></tr>
+<tr><td>DisjointSetTest</td><td class="num">5</td><td>n = 0, 200k-element chain, idempotent union</td></tr>
+<tr><td>PlannerServiceTest</td><td class="num">9</td><td>end-to-end stock check, no Bloom false negatives, empty list, unknown item + suggestion, duplicate merge, 2 AM (closed shops), qty above any stock, all-invalid parameters, route ≤ 2·OPT</td></tr>
+</table></div>
+
+<h2><span class="n">6</span>Benchmarks</h2>
+<p><strong>Method:</strong> <code>BenchmarkService</code> runs on the server through <code>/api/bench/*</code> and in the Lab tab, with fixed seeds, two JIT warm-up runs and the median of five timed runs. Hardware: Apple M5, JDK 26. Wall-clock times are machine-dependent. Ratios and counts are reproducible.</p>
+<div class="two">
+<div><h3>Trie vs linear scan (ns / query)</h3><div class="tw"><table>
+<tr><th class="num">n names</th><th class="num">trie</th><th class="num">scan</th><th class="num">speed-up</th></tr>
+<tr><td class="num">1,000</td><td class="num">2,085</td><td class="num">15,499</td><td class="num">7.4×</td></tr>
+<tr><td class="num">10,000</td><td class="num">1,005</td><td class="num">13,462</td><td class="num">13.4×</td></tr>
+<tr><td class="num">100,000</td><td class="num">593</td><td class="num">13,554</td><td class="num">22.9×</td></tr></table></div>
+<p>The scan stops after 8 hits, so it does not grow linearly here. The trie's per-query cost stays flat (it falls slightly as the JIT warms up) while the scan stays at about 13 µs.</p></div>
+<div><h3>Bloom filter, n = 100,000 (100k absent probes)</h3><div class="tw"><table>
+<tr><th class="num">target</th><th class="num">observed</th><th class="num">theory</th><th class="num">k</th><th class="num">KB</th></tr>
+<tr><td class="num">5%</td><td class="num">5.145%</td><td class="num">5.027%</td><td class="num">4</td><td class="num">76</td></tr>
+<tr><td class="num">1%</td><td class="num">1.027%</td><td class="num">1.004%</td><td class="num">7</td><td class="num">117</td></tr>
+<tr><td class="num">0.1%</td><td class="num">0.103%</td><td class="num">0.100%</td><td class="num">10</td><td class="num">176</td></tr></table></div>
+<p>A HashSet of the same keys is ≈ 6.1 MB (53× larger at 1%). Lookup is about 2× slower (≈ 20 ns vs 11 ns), so the benefit is memory, not speed. No false negatives in any run.</p></div>
+</div>
+<h3>Randomized vs first-pivot quickselect (ms)</h3>
+<div class="tw"><table>
+<tr><th>input</th><th class="num">n</th><th class="num">randomized</th><th class="num">first-pivot</th><th class="num">sort + pick</th></tr>
+<tr><td>random</td><td class="num">10,000</td><td class="num">0.145</td><td class="num">0.170</td><td class="num">0.452</td></tr>
+<tr><td>random</td><td class="num">100,000</td><td class="num">0.843</td><td class="num">0.598</td><td class="num">6.241</td></tr>
+<tr><td>random</td><td class="num">1,000,000</td><td class="num">9.154</td><td class="num">8.316</td><td class="num">74.204</td></tr>
+<tr><td>sorted</td><td class="num">2,000</td><td class="num">0.004</td><td class="num">0.058</td><td class="num">0.024</td></tr>
+<tr><td>sorted</td><td class="num">8,000</td><td class="num">0.012</td><td class="num">0.440</td><td class="num">0.109</td></tr>
+<tr><td>sorted</td><td class="num">32,000</td><td class="num">0.047</td><td class="num">3.431</td><td class="num">0.653</td></tr>
+</table></div>
+<p><strong>When randomization helps:</strong> on random input both pivots behave alike, and both beat sorting by about 8× at 10⁶ (O(n) vs O(n log n)). On sorted input, which is common for data that arrives already ordered, the first-pivot version is quadratic: ×4 n gives ×7.8 time. The random pivot stays linear and is 73× faster at 32k.</p>
+<div class="two">
+<div><h3>Greedy vs exact set cover (20 instances, 30 sets)</h3><div class="tw"><table>
+<tr><th class="num">n</th><th class="num">avg</th><th class="num">worst</th><th class="num">H(n)</th><th class="num">greedy µs</th><th class="num">exact µs</th></tr>
+<tr><td class="num">8</td><td class="num">1.068</td><td class="num">1.300</td><td class="num">2.718</td><td class="num">8.0</td><td class="num">84.7</td></tr>
+<tr><td class="num">12</td><td class="num">1.077</td><td class="num">1.307</td><td class="num">3.103</td><td class="num">10.4</td><td class="num">170.4</td></tr>
+<tr><td class="num">16</td><td class="num">1.101</td><td class="num">1.293</td><td class="num">3.381</td><td class="num">12.7</td><td class="num">548.0</td></tr>
+<tr><td class="num">18</td><td class="num">1.083</td><td class="num">1.260</td><td class="num">3.495</td><td class="num">14.5</td><td class="num">925.7</td></tr></table></div></div>
+<div><h3>Route quality (tour ÷ baseline)</h3><div class="tw"><table>
+<tr><th class="num">n</th><th class="num">double-tree</th><th class="num">+2-opt</th><th class="num">NN</th><th>vs</th></tr>
+<tr><td class="num">6</td><td class="num">1.126</td><td class="num">1.000</td><td class="num">1.065</td><td>OPT</td></tr>
+<tr><td class="num">9</td><td class="num">1.140</td><td class="num">1.004</td><td class="num">1.085</td><td>OPT</td></tr>
+<tr><td class="num">12</td><td class="num">1.232</td><td class="num">1.024</td><td class="num">1.175</td><td>OPT</td></tr>
+<tr><td class="num">200</td><td class="num">1.557</td><td class="num">1.254</td><td class="num">1.442</td><td>MST</td></tr>
+<tr><td class="num">800</td><td class="num">1.533</td><td class="num">1.231</td><td class="num">1.364</td><td>MST</td></tr></table></div></div>
+</div>
+<p>Greedy cover averages about 8% above optimum, far inside the H(n) bound, while the exact DP's time roughly doubles with every extra item. Double-tree alone is worse than nearest-neighbour in practice despite its better guarantee. With 2-opt, Sweep averages <strong>0.9% above the Held-Karp optimum</strong> on realistic trip sizes (worst observed 12.6%). For n = 800 the tour is within 1.23 × MST, a lower bound on OPT.</p>
+<h3>End-to-end ("Weekly groceries", 10 items, 18:00, auto-rickshaw)</h3>
+<div class="tw"><table>
+<tr><th>Strategy</th><th class="num">stops</th><th class="num">km</th><th class="num">basket</th><th class="num">trip cost</th><th class="num">min</th></tr>
+<tr><td><strong>Sweep</strong></td><td class="num">4</td><td class="num">6.7</td><td class="num">₹1,171</td><td class="num"><strong>₹1,451</strong></td><td class="num">54</td></tr>
+<tr><td>Nearest store first</td><td class="num">4</td><td class="num">6.5</td><td class="num">₹1,255</td><td class="num">₹1,532</td><td class="num">54</td></tr>
+<tr><td>Cheapest everywhere</td><td class="num">8</td><td class="num">18.4</td><td class="num">₹1,125</td><td class="num">₹1,776</td><td class="num">125</td></tr>
+</table></div>
+<p>Bloom pre-screen on this request: 360 shop × item checks, 306 rejected by a zero bit, 4 false positives caught by the exact check (observed 1.29% vs 0.99% theoretical), total 0.10 ms. The route was confirmed optimal by Held-Karp (ratio 1.000).</p>
+
+<figure style="max-width:62%;margin-inline:auto"><img src="screenshots/plan-light.png" alt="Sweep plan view with route and receipt"><figcaption>Plan view after a run: route on the Powai map, totals, the printed pick-list and the baseline comparison.</figcaption></figure>
+
+
+<h2><span class="n">7</span>Limitations and failure cases</h2>
+<ul>
+<li><strong>Metric assumption.</strong> Straight-line × 1.3 is a metric, but real road networks (one-ways, flyovers) can violate symmetry or the triangle inequality, and then the 2× bound no longer holds. A real deployment would compute shortest-path distances, which are metric by construction, and pass them to the same code.</li>
+<li><strong>Set-cover cost model.</strong> The round-trip-from-home proxy over-estimates the marginal detour of a shop near other chosen shops. The H(n) guarantee is with respect to this proxy cost, not the final route length. With λ &gt; 0 there is no guarantee at all.</li>
+<li><strong>Single-shop purchase per item.</strong> If no open shop has the full quantity but several together do, Sweep reports the item as unmet instead of splitting it. This is a deliberate simplification, and splitting would be a max-flow extension.</li>
+<li><strong>Exact baselines are bounded</strong> to n ≤ 16 (set cover) and ≤ 13 nodes (Held-Karp). Above that, only the bounds are reported.</li>
+<li><strong>Bloom filters are static.</strong> Removing an item would need a counting Bloom filter. Sketches are rebuilt at load time.</li>
+<li><strong>Synthetic data.</strong> Prices and stock are generated, not scraped, so no real shop's prices are represented.</li>
+</ul>
+
+<h2><span class="n">8</span>Individual contributions</h2>
+<div class="tw"><table>
+<tr><th>Member</th><th>Algorithms / modules</th><th>Other work</th></tr>
+<tr><td>Member 1 (ID)</td><td>Trie, BloomFilter, PlannerService pipeline</td><td>API validation, edge-case tests</td></tr>
+<tr><td>Member 2 (ID)</td><td>SetCover (greedy + DP), MetricTsp, DisjointSet</td><td>BenchmarkService, report §4–6</td></tr>
+<tr><td>Member 3 (ID)</td><td>RandomizedSelect</td><td>Frontend, dataset generator, README, demo</td></tr>
+</table></div>
+<p class="eyebrow" style="margin-top:2rem">Repository: run <code>./mvnw spring-boot:run</code> and open localhost:8080. Full setup in README.md.</p>
+</article>
+</body>
+</html>

@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sweep Project Proposal</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600..800&family=Instrument+Sans:wght@400..700&family=JetBrains+Mono:wght@500&display=swap">
+<style>
+:root { --ink: #12222B; --ink-2: #44565D; --ink-3: #7C8D92; --rule: #D6DFDA; --tint: #EEF3F0; --cobalt: #1F4BFF; --marigold: #FFB000; }
+body { background: #fff; color: var(--ink); font: 400 10.3pt/1.5 "Instrument Sans", "Helvetica Neue", system-ui, sans-serif; margin: 0; }
+.doc { max-width: 760px; margin: 0 auto; padding: 32px 16px; }
+h1 { font: 800 24pt/1.05 "Bricolage Grotesque", system-ui, sans-serif; margin: .2rem 0; letter-spacing: -.02em; }
+h2 { font: 700 12pt "Bricolage Grotesque", system-ui, sans-serif; margin: 1rem 0 .3rem; color: var(--cobalt); }
+p, li { color: var(--ink-2); margin: .25rem 0; }
+ul { padding-left: 1.1rem; margin: .2rem 0; }
+.eyebrow { font: 600 7.5pt "Instrument Sans", sans-serif; letter-spacing: .14em; text-transform: uppercase; color: var(--ink-3); margin: 0; }
+table { border-collapse: collapse; width: 100%; font-size: 9pt; margin: .3rem 0; }
+th, td { text-align: left; padding: .3rem .5rem; border-bottom: 1px solid var(--rule); vertical-align: top; }
+th { font-size: 7.5pt; text-transform: uppercase; letter-spacing: .08em; color: var(--ink-3); }
+strong { color: var(--ink); }
+.tag { display: inline-block; font: 500 7.5pt "JetBrains Mono", monospace; background: var(--tint); padding: 0 .35rem; border-radius: 4px; }
+@media print { @page { size: A4; margin: 14mm; } .doc { padding: 0; max-width: none; } }
+</style>
+</head>
+<body>
+<div class="doc">
+<p class="eyebrow">Advanced Algorithms · CIA 3 · Project proposal</p>
+<h1>Sweep: one trip, every errand</h1>
+<table>
+<tr><th>Team member</th><th>ID</th><th>Role</th></tr>
+<tr><td>Member 1</td><td>—</td><td>Text search &amp; probabilistic screening (trie, Bloom filter), planner API</td></tr>
+<tr><td>Member 2</td><td>—</td><td>Optimisation (set cover, metric TSP, union-find), benchmarks</td></tr>
+<tr><td>Member 3</td><td>—</td><td>Randomized selection, frontend, dataset, documentation</td></tr>
+</table>
+
+<h2>Real-world problem</h2>
+<p>A weekly errand list usually spans several kinds of shop: supermarket, chemist, stationer, hardware store. People either go to the nearest shop again and again, overpaying and backtracking, or chase the lowest price per item and zig-zag across the suburb. Neither accounts for opening hours or stock. Sweep turns the list into one optimised trip: <strong>which shops, what to buy where, and in what order</strong>.</p>
+
+<h2>Target user</h2>
+<p>Students and residents of Powai, Mumbai, running errands on foot, by cycle or by auto-rickshaw, who want to spend less money and time.</p>
+
+<h2>Proposed features</h2>
+<ul>
+<li>Autocomplete list builder with quantities, example lists, departure time and travel mode</li>
+<li>Bloom-filter pre-screen of every open shop's stock, confirmed exactly against inventory</li>
+<li>Shop selection by weighted set cover, with a price-vs-distance slider</li>
+<li>Route ordering with a 2-approximate metric-TSP tour plus 2-opt, shown on an animated map</li>
+<li>Per-item deal score against the city median; comparison with two common shopping strategies</li>
+<li>"X-ray" view of each algorithm's trace and a "Lab" view of live server-side benchmarks</li>
+<li>Clear handling of empty lists, unknown or duplicate items, closed shops and insufficient stock</li>
+</ul>
+
+<h2>Core techniques and why they fit</h2>
+<table>
+<tr><th>Technique</th><th>Unit / CO</th><th>Why it is appropriate</th></tr>
+<tr><td><strong>Greedy weighted set cover</strong> + exact DP baseline</td><td><span class="tag">U5 · CO4/CO6</span></td><td>"Fewest, cheapest shops that together stock the list" is exactly set cover (NP-hard). The greedy gives an H(n) guarantee in polynomial time.</td></tr>
+<tr><td><strong>Metric TSP 2-approximation</strong> (Kruskal MST with union-find, preorder shortcut, 2-opt) + Held-Karp baseline</td><td><span class="tag">U2, U5 · CO2/CO4</span></td><td>Ordering the stops is TSP on straight-line distances, which form a metric, so the double-tree bound of 2·OPT applies.</td></tr>
+<tr><td><strong>Bloom filter</strong> with random salt</td><td><span class="tag">U6 · CO5</span></td><td>Shop inventories are mostly "no". A few-hundred-bit sketch per shop rejects about 85% of shop–item checks with no false negatives, and every "maybe" is confirmed exactly.</td></tr>
+<tr><td><strong>Randomized quickselect / quicksort</strong></td><td><span class="tag">U6 · CO5</span></td><td>Median and extreme prices per item in expected O(n), safe on sorted or duplicate-heavy price lists. Also orders Kruskal's edges.</td></tr>
+<tr><td><strong>Trie</strong> over word-start suffixes</td><td><span class="tag">U4 · CO3</span></td><td>Prefix autocomplete that matches any word of a name, at a cost independent of catalogue size.</td></tr>
+</table>
+
+<h2>Data source</h2>
+<p>Realistic synthetic dataset from a seeded generator committed to the repo: 36 shops of 9 types around real Powai localities, with opening hours; 176 items in 12 categories with MRP-style prices; 770 inventory listings with price and stock. Distances are straight-line × 1.3 road factor, which keeps the triangle inequality.</p>
+
+<h2>Measurable success criteria</h2>
+<ul>
+<li>100% of returned picks are stocked, with enough units, at the assigned shop. Zero Bloom false negatives, and observed FP rate within sampling error of theory.</li>
+<li>Set-cover cost ≤ H(n)·OPT (λ = 0), and route ≤ 2·OPT, both measured against exact solvers. Target average route gap below 5%.</li>
+<li>Trip cost no worse than "nearest store first" and "cheapest everywhere" on sample lists.</li>
+<li>At least 5 JUnit tests per algorithm including edge cases; benchmarks at three or more input sizes; a plan in under 50 ms.</li>
+</ul>
+<h2>Stack</h2>
+<p>Java 21 + Spring Boot REST (all algorithms self-implemented), JUnit 5, plain HTML/CSS/JS frontend served by the same app.</p>
+</div>
+</body>
+</html>
