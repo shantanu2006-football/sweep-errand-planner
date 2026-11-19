@@ -12,7 +12,21 @@ public final class Api {
     public record Line(String name, Integer qty) {}
 
     public record PlanRequest(Point home, List<Line> items, Integer hour, Double lambda,
-                              Double kmCost, Double stopCost, Double speedKmh) {}
+                              Double kmCost, Double stopCost, Double speedKmh, String mode) {
+        public PlanRequest(Point home, List<Line> items, Integer hour, Double lambda, Double kmCost, Double stopCost, Double speedKmh) {
+            this(home, items, hour, lambda, kmCost, stopCost, speedKmh, null);
+        }
+    }
+
+    public record ParseRequest(String text) {}
+
+    /** One line of a pasted list. itemId == null means no confident match (alternatives offered). */
+    public record ParsedLine(String raw, int qty, Integer itemId, String item, double confidence, String matchedBy,
+                             List<String> alternatives, String note) {}
+
+    public record ParseResponse(List<ParsedLine> lines, int matched, int unmatched, long nanos) {}
+
+    public record Share(String mapsUrl, String text, String travelMode) {}
 
     public record Suggestion(int id, String name, String category, int minPrice, int stores) {}
 
@@ -20,7 +34,8 @@ public final class Api {
                                   long scanNanos, int trieNodes) {}
 
     public record StoreDto(int id, String name, String type, String area, double x, double y,
-                           int open, int close, int items, int bloomBits, int bloomK, int bloomBytes) {}
+                           int open, int close, int items, int bloomBits, int bloomK, int bloomBytes,
+                           double lat, double lng) {}
 
     public record ItemDto(int id, String name, String category, int basePrice) {}
 
@@ -40,7 +55,7 @@ public final class Api {
                        int cityMin, int cityMax) {}
 
     public record Stop(int storeId, String name, String type, double x, double y, List<Pick> picks, int subtotal,
-                       double legKm, int etaMin) {}
+                       double legKm, int etaMin, double lat, double lng, String arrival, int closesAt, boolean closingRisk) {}
 
     public record Edge(int a, int b, double km) {}
 
@@ -59,7 +74,7 @@ public final class Api {
     public record PlanResponse(Point home, int hour, List<Stop> stops, Totals totals, ScreenStats screenStats,
                                List<Screen> screens, CoverReport cover, RouteReport route,
                                List<Alternative> alternatives, List<Unmet> unmet, List<String> notices,
-                               Map<String, Object> params) {}
+                               Map<String, Object> params, Share share) {}
 
     public record BloomProbe(int storeId, String store, int itemId, String item, int m, int k, int[] positions,
                              boolean[] bitsSet, boolean mightContain, boolean actuallyStocked, String verdict,

@@ -80,6 +80,15 @@ public final class City {
         }
     }
 
+    /*
+     * Grid -> approximate real coordinates over Powai, Mumbai (for map hand-off only).
+     * x = 0..8 km east maps to lng 72.880..72.956; y = 0..6 km south maps to lat 19.135..19.081.
+     */
+    public static final double LAT0 = 19.135, LNG0 = 72.880, KM_PER_DEG_LAT = 110.57, KM_PER_DEG_LNG = 105.2;
+
+    public static double lat(double y) { return Math.round((LAT0 - y / KM_PER_DEG_LAT) * 1e6) / 1e6; }
+    public static double lng(double x) { return Math.round((LNG0 + x / KM_PER_DEG_LNG) * 1e6) / 1e6; }
+
     public double distance(double x1, double y1, double x2, double y2) {
         return ROAD_FACTOR * Math.hypot(x1 - x2, y1 - y2);
     }

@@ -2,6 +2,7 @@ package edu.atlas.sweep;
 
 import edu.atlas.sweep.domain.City;
 import edu.atlas.sweep.service.BenchmarkService;
+import edu.atlas.sweep.service.ListParser;
 import edu.atlas.sweep.service.PlannerService;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.SpringApplication;
@@ -25,6 +26,11 @@ public class SweepApplication {
     @Bean
     PlannerService planner(City city, @Value("${sweep.seed:42}") long seed) {
         return new PlannerService(city, seed);
+    }
+
+    @Bean
+    ListParser listParser(City city) {
+        return new ListParser(city);
     }
 
     @Bean

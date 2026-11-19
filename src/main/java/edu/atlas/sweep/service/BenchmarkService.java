@@ -23,7 +23,8 @@ public final class BenchmarkService {
             case "select" -> select();
             case "setcover" -> setCover();
             case "tsp" -> tsp();
-            default -> throw new IllegalArgumentException("unknown benchmark '" + name + "' (trie, bloom, select, setcover, tsp)");
+            case "kmp" -> kmp();
+            default -> throw new IllegalArgumentException("unknown benchmark '" + name + "' (trie, kmp, bloom, select, setcover, tsp)");
         };
         cache.put(name, rows);
         return rows;
@@ -55,6 +56,26 @@ public final class BenchmarkService {
             if (w.startsWith(p) || w.contains(" " + p)) out.add(i);
         }
         return out;
+    }
+
+    // ---------------------------------------------------------------- KMP vs naive matching
+    List<Map<String, Object>> kmp() {
+        List<Map<String, Object>> rows = new ArrayList<>();
+        String pat = "a".repeat(199) + "b";             // adversarial: almost matches at every shift
+        for (int n : new int[]{50_000, 200_000, 800_000}) {
+            String text = "a".repeat(n) + "b";
+            double k = medianNs(() -> Kmp.indexOf(text, pat));
+            double nv = medianNs(() -> Kmp.naiveIndexOf(text, pat));
+            Random r = new Random(SEED);
+            StringBuilder sb = new StringBuilder(n);
+            for (int i = 0; i < n; i++) sb.append((char) ('a' + r.nextInt(26)));
+            String rnd = sb.toString(), rp = "zqxjk";
+            double kr = medianNs(() -> Kmp.indexOf(rnd, rp));
+            double nr = medianNs(() -> Kmp.naiveIndexOf(rnd, rp));
+            rows.add(row("n", n, "m", pat.length(), "kmpAdversarialMs", ms(k), "naiveAdversarialMs", ms(nv),
+                    "kmpRandomMs", ms(kr), "naiveRandomMs", ms(nr), "speedup", round(nv / k, 1)));
+        }
+        return rows;
     }
 
     // ---------------------------------------------------------------- bloom: observed vs theory

@@ -4,6 +4,7 @@ import edu.atlas.sweep.algo.BloomFilter;
 import edu.atlas.sweep.algo.Trie;
 import edu.atlas.sweep.domain.City;
 import edu.atlas.sweep.service.BenchmarkService;
+import edu.atlas.sweep.service.ListParser;
 import edu.atlas.sweep.service.PlannerService;
 import edu.atlas.sweep.web.Api.*;
 import org.springframework.http.ResponseEntity;
@@ -20,11 +21,19 @@ public class ApiController {
     private final City city;
     private final PlannerService planner;
     private final BenchmarkService bench;
+    private final ListParser parser;
 
-    public ApiController(City city, PlannerService planner, BenchmarkService bench) {
+    public ApiController(City city, PlannerService planner, BenchmarkService bench, ListParser parser) {
         this.city = city;
         this.planner = planner;
         this.bench = bench;
+        this.parser = parser;
+    }
+
+    /** Free-text list -> catalogue items (trie candidates, KMP scoring, Hinglish/brand aliases). */
+    @PostMapping("/parse")
+    public ParseResponse parse(@RequestBody(required = false) ParseRequest req) {
+        return parser.parse(req == null ? null : req.text());
     }
 
     /** Autocomplete: trie lookup, timed against a linear scan so the UI can show the gap. */
@@ -57,7 +66,7 @@ public class ApiController {
         return city.stores().stream().map(s -> {
             BloomFilter bf = city.bloom(s.id());
             return new StoreDto(s.id(), s.name(), s.type(), s.area(), s.x(), s.y(), s.open(), s.close(),
-                    city.inventoryOf(s.id()).size(), bf.m(), bf.k(), bf.sizeBytes());
+                    city.inventoryOf(s.id()).size(), bf.m(), bf.k(), bf.sizeBytes(), City.lat(s.y()), City.lng(s.x()));
         }).toList();
     }
 

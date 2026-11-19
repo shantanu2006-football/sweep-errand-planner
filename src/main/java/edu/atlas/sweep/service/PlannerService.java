@@ -202,7 +202,12 @@ public final class PlannerService {
             List<Pick> picks = picksByStore.get(s.id());
             int sub = picks.stream().mapToInt(p -> p.price() * p.qty()).sum();
             int eta = (int) Math.round(cum / speed * 60 + (idx - 1) * MINUTES_PER_STOP);
-            stops.add(new Stop(s.id(), s.name(), s.type(), s.x(), s.y(), picks, sub, round(leg, 2), eta));
+            double arriveH = hour + eta / 60.0;
+            // risky if we arrive after closing, or with under 15 minutes to shop before it shuts
+            boolean risk = s.close() < 24 && arriveH > s.close() - 0.25;
+            if (risk) notices.add(s.name() + " closes at " + s.close() + ":00 and you'd reach it around " + clock(arriveH) + " - leave earlier or swap it");
+            stops.add(new Stop(s.id(), s.name(), s.type(), s.x(), s.y(), picks, sub, round(leg, 2), eta,
+                    City.lat(s.y()), City.lng(s.x()), clock(arriveH), s.close(), risk));
             px = s.x(); py = s.y();
         }
         double km = rr.report.km();
@@ -222,7 +227,7 @@ public final class PlannerService {
         params.put("lambda", lambda); params.put("kmCost", kmCost); params.put("stopCost", stopCost);
         params.put("speedKmh", speed); params.put("openStores", open.size()); params.put("roadFactor", City.ROAD_FACTOR);
         return new PlanResponse(new Point(hx, hy), hour, stops, totals, stats, screens, coverReport, rr.report,
-                alts, unmet, notices, params);
+                alts, unmet, notices, params, share(hx, hy, hour, stops, totals, unmet, req.mode()));
     }
 
     private record RouteResult(List<Integer> order, RouteReport report) {}
@@ -320,6 +325,39 @@ public final class PlannerService {
                 .map(s -> s.name() + " (opens " + s.open() + ":00)").limit(2).toList();
         if (!closed.isEmpty()) return "only stocked at stores closed at " + hour + ":00 - " + String.join(", ", closed);
         return "not stocked by any store in the area";
+    }
+
+    /** Google Maps directions link (home -> stops -> home) and a WhatsApp-ready summary. */
+    private Share share(double hx, double hy, int hour, List<Stop> stops, Totals t, List<Unmet> unmet, String mode) {
+        String travel = switch (mode == null ? "" : mode) {
+            case "walk" -> "walking";
+            case "cycle" -> "bicycling";
+            default -> "driving";
+        };
+        String home = City.lat(hy) + "," + City.lng(hx);
+        StringBuilder url = new StringBuilder("https://www.google.com/maps/dir/?api=1&origin=").append(home)
+                .append("&destination=").append(home).append("&travelmode=").append(travel);
+        if (!stops.isEmpty()) {
+            url.append("&waypoints=");
+            for (int i = 0; i < stops.size(); i++) url.append(i == 0 ? "" : "%7C").append(stops.get(i).lat()).append(",").append(stops.get(i).lng());
+        }
+        StringBuilder txt = new StringBuilder();
+        txt.append("Sweep errand run - leave ").append(clock(hour)).append("\n")
+           .append(t.stops()).append(" stops, ").append(String.format(Locale.ROOT, "%.1f", t.km())).append(" km, about ")
+           .append(t.minutes()).append(" min\n\n");
+        for (int i = 0; i < stops.size(); i++) {
+            Stop s = stops.get(i);
+            txt.append(i + 1).append(". ").append(s.name()).append(" (~").append(s.arrival()).append(")\n");
+            for (Pick p : s.picks()) txt.append("   - ").append(p.qty()).append(" x ").append(p.item()).append("  Rs ").append(p.price() * p.qty()).append("\n");
+        }
+        for (Unmet u : unmet) txt.append("Not available: ").append(u.item()).append(" (").append(u.reason()).append(")\n");
+        txt.append("\nBasket Rs ").append(t.basket()).append(" | trip cost Rs ").append(Math.round(t.total())).append("\n").append("Route: ").append(url);
+        return new Share(url.toString(), txt.toString(), travel);
+    }
+
+    static String clock(double h) {
+        int mins = (int) Math.round(h * 60) % (24 * 60);
+        return String.format(Locale.ROOT, "%02d:%02d", mins / 60, mins % 60);
     }
 
     private static double range(Double v, double def, double lo, double hi, String name, List<String> problems) {
