@@ -1,0 +1,37 @@
+id,name,type,area,x_km,y_km,open,close
+1,FreshCart Hypermart,Supermarket,Chandivali,5.97,2.0,8,21
+2,Lakeside SuperBazaar,Supermarket,Hiranandani Gardens,4.25,3.8,8,23
+3,DailyBasket Mega,Supermarket,Galleria Square,5.24,2.8,7,21
+4,Greenfield Supermarket,Supermarket,Hill Side Avenue,5.5,2.75,8,22
+5,Shree Ganesh Kirana,Kirana,IIT Bombay Main Gate,2.82,2.09,9,21
+6,Laxmi General Store,Kirana,Jogeshwari-Vikhroli Link Rd,2.32,5.53,7,23
+7,Om Sai Provisions,Kirana,Gandhinagar,0.96,2.05,9,21
+8,Balaji Kirana,Kirana,Saki Vihar Road,5.93,4.31,9,21
+9,Krishna Stores,Kirana,Panchkutir,1.84,4.7,10,22
+10,Mahalaxmi Traders,Kirana,Morarji Nagar,4.04,5.26,9,22
+11,Jai Ambe Kirana,Kirana,Chandivali,6.01,2.24,8,23
+12,New Bombay Provisions,Kirana,Panchkutir,1.58,5.03,9,22
+13,Vinayak General,Kirana,Powai Lake Promenade,3.02,3.96,10,23
+14,CarePlus Chemist,Pharmacy,Supreme Business Park,5.24,4.16,8,23
+15,Lifeline Pharmacy,Pharmacy,Gandhinagar,1.07,1.56,0,24
+16,Wellness Medicos,Pharmacy,Galleria Square,5.33,2.76,0,24
+17,Apex Chemists,Pharmacy,Kanjur Marg West,1.32,2.83,0,24
+18,Sanjeevani Medical,Pharmacy,Morarji Nagar,4.16,5.27,8,23
+19,HealthFirst Pharmacy,Pharmacy,Ramabai Nagar,7.36,1.16,0,24
+20,Crumbs & Co.,Bakery,Ramabai Nagar,7.3,1.11,9,23
+21,Irani Bake House,Bakery,Chandivali,6.71,2.52,7,22
+22,Golden Oven,Bakery,Gandhinagar,0.98,1.25,7,21
+23,Hariyali Fruits,Fruit & Veg,Hill Side Avenue,5.66,2.91,8,21
+24,FarmFresh Sabzi,Fruit & Veg,Panchkutir,2.05,4.81,9,22
+25,Lakeview Fruit Mart,Fruit & Veg,Kanjur Marg West,0.74,3.49,10,23
+26,Campus Stationers,Stationery,Galleria Square,4.93,2.99,9,22
+27,Inkwell Paper Mart,Stationery,Powai Lake Promenade,3.17,3.63,7,23
+28,Scholar's Corner,Stationery,Saki Vihar Road,5.76,4.76,9,21
+29,Bharat Hardware,Hardware,Jogeshwari-Vikhroli Link Rd,2.57,5.36,10,23
+30,FixIt Tools,Hardware,Morarji Nagar,4.06,5.56,10,21
+31,Mehta Electricals & Hardware,Hardware,Saki Vihar Road,6.32,3.95,7,23
+32,Gadget Point,Electronics,Galleria Square,4.68,2.71,9,21
+33,Volt Mobile Hub,Electronics,Gandhinagar,0.82,1.79,8,21
+34,TechKart Accessories,Electronics,Supreme Business Park,5.03,3.8,7,23
+35,Paws & Whiskers,Pet Store,Ramabai Nagar,7.81,1.1,9,21
+36,Happy Tails Pet Shop,Pet Store,Galleria Square,5.04,3.55,10,23

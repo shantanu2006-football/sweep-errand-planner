@@ -1,0 +1,177 @@
+id,name,category,base_price_inr
+1,Basmati Rice 1kg,grocery,145
+2,Toor Dal 1kg,grocery,160
+3,Atta 5kg,grocery,280
+4,Sugar 1kg,grocery,48
+5,Salt 1kg,grocery,25
+6,Sunflower Oil 1L,grocery,155
+7,Mustard Oil 1L,grocery,180
+8,Ghee 500ml,grocery,330
+9,Moong Dal 500g,grocery,85
+10,Chana Dal 500g,grocery,70
+11,Poha 500g,grocery,45
+12,Rava 500g,grocery,40
+13,Besan 500g,grocery,60
+14,Turmeric Powder 100g,grocery,35
+15,Chilli Powder 100g,grocery,40
+16,Garam Masala 50g,grocery,55
+17,Jeera 100g,grocery,60
+18,Tea Leaves 250g,grocery,140
+19,Instant Coffee 50g,grocery,165
+20,Oats 1kg,grocery,199
+21,Cornflakes 500g,grocery,185
+22,Peanut Butter 340g,grocery,225
+23,Honey 250g,grocery,130
+24,Tomato Ketchup 500g,grocery,115
+25,Maggi Noodles 4pk,grocery,56
+26,Pasta 500g,grocery,95
+27,Soy Sauce 200ml,grocery,75
+28,Jam 500g,grocery,150
+29,Rajma 500g,grocery,90
+30,Kabuli Chana 500g,grocery,85
+31,Milk 1L,dairy,66
+32,Curd 400g,dairy,45
+33,Paneer 200g,dairy,90
+34,Butter 100g,dairy,58
+35,Cheese Slices 10pk,dairy,140
+36,Eggs 12pk,dairy,96
+37,Fresh Cream 200ml,dairy,65
+38,Buttermilk 500ml,dairy,25
+39,Greek Yogurt 100g,dairy,50
+40,Onions 1kg,produce,40
+41,Potatoes 1kg,produce,35
+42,Tomatoes 1kg,produce,45
+43,Bananas 12pc,produce,60
+44,Apples 1kg,produce,180
+45,Spinach Bunch,produce,25
+46,Coriander Bunch,produce,15
+47,Green Chillies 100g,produce,12
+48,Ginger 100g,produce,20
+49,Garlic 100g,produce,30
+50,Lemons 6pc,produce,30
+51,Cucumber 500g,produce,25
+52,Carrots 500g,produce,30
+53,Capsicum 500g,produce,50
+54,Mangoes 1kg,produce,220
+55,Oranges 1kg,produce,120
+56,Papaya 1pc,produce,60
+57,White Bread,bakery,40
+58,Brown Bread,bakery,50
+59,Pav 6pc,bakery,30
+60,Croissant,bakery,60
+61,Chocolate Cake 500g,bakery,450
+62,Rusk 300g,bakery,55
+63,Cookies 200g,bakery,80
+64,Burger Buns 4pc,bakery,45
+65,Garlic Bread,bakery,90
+66,Potato Chips 90g,snacks,30
+67,Namkeen Mix 400g,snacks,110
+68,Dark Chocolate 100g,snacks,120
+69,Biscuits Marie 250g,snacks,35
+70,Cola 750ml,snacks,45
+71,Orange Juice 1L,snacks,120
+72,Mineral Water 1L,snacks,20
+73,Energy Drink 250ml,snacks,125
+74,Popcorn Kernels 200g,snacks,70
+75,Roasted Almonds 200g,snacks,260
+76,Cashews 200g,snacks,240
+77,Ice Cream 700ml,snacks,220
+78,Dishwash Liquid 500ml,household,110
+79,Detergent Powder 1kg,household,135
+80,Floor Cleaner 1L,household,175
+81,Toilet Cleaner 500ml,household,95
+82,Garbage Bags 30pc,household,99
+83,Aluminium Foil 9m,household,115
+84,Tissue Roll 4pk,household,140
+85,Scrub Pad 3pk,household,45
+86,Mosquito Repellent Refill,household,85
+87,Matchbox 10pk,household,20
+88,Agarbatti 100g,household,60
+89,Zip Lock Bags 20pc,household,90
+90,Kitchen Towel 2pk,household,110
+91,Toothpaste 150g,personal,105
+92,Toothbrush 2pk,personal,80
+93,Shampoo 340ml,personal,230
+94,Soap 4pk,personal,165
+95,Face Wash 100ml,personal,175
+96,Deodorant 150ml,personal,210
+97,Hand Wash 200ml,personal,99
+98,Sanitary Pads 15pc,personal,180
+99,Shaving Cream 70g,personal,95
+100,Razor 3pk,personal,140
+101,Coconut Oil 200ml,personal,90
+102,Sunscreen 50ml,personal,349
+103,Body Lotion 200ml,personal,245
+104,Lip Balm,personal,120
+105,Hair Oil 200ml,personal,150
+106,Paracetamol 500mg Strip,pharmacy,30
+107,ORS Sachet 4pk,pharmacy,80
+108,Antiseptic Liquid 120ml,pharmacy,95
+109,Bandage Roll,pharmacy,40
+110,Band-Aid 20pc,pharmacy,60
+111,Cough Syrup 100ml,pharmacy,115
+112,Antacid Tablets,pharmacy,45
+113,Vitamin C Tablets,pharmacy,120
+114,Digital Thermometer,pharmacy,199
+115,Hand Sanitizer 100ml,pharmacy,60
+116,Face Masks 10pc,pharmacy,99
+117,Pain Relief Spray,pharmacy,185
+118,Cotton Roll 100g,pharmacy,55
+119,Eye Drops 10ml,pharmacy,90
+120,Glucose Powder 500g,pharmacy,140
+121,Antihistamine Strip,pharmacy,35
+122,Multivitamin 30tab,pharmacy,299
+123,A4 Notebook 200pg,stationery,90
+124,Ball Pen 5pk,stationery,50
+125,Gel Pen Blue,stationery,20
+126,Pencil 10pk,stationery,60
+127,Eraser 3pk,stationery,15
+128,Sharpener,stationery,10
+129,Highlighter 4pk,stationery,120
+130,Sticky Notes,stationery,75
+131,A4 Paper 500 sheets,stationery,330
+132,Stapler,stationery,120
+133,Staple Pins,stationery,25
+134,Glue Stick,stationery,35
+135,Scissors,stationery,70
+136,File Folder,stationery,30
+137,Scale 30cm,stationery,15
+138,Whiteboard Marker,stationery,40
+139,Calculator,stationery,450
+140,Geometry Box,stationery,140
+141,Cello Tape,stationery,30
+142,LED Bulb 9W,hardware,120
+143,Extension Board 4-socket,hardware,399
+144,AA Batteries 4pk,hardware,120
+145,AAA Batteries 4pk,hardware,120
+146,Screwdriver Set,hardware,249
+147,Hammer,hardware,299
+148,Measuring Tape 5m,hardware,150
+149,Insulation Tape,hardware,30
+150,Super Glue,hardware,25
+151,Wall Hooks 6pc,hardware,99
+152,Padlock,hardware,220
+153,Nails Assorted 200g,hardware,60
+154,Plier,hardware,199
+155,Torch LED,hardware,249
+156,Door Stopper,hardware,90
+157,USB-C Cable 1m,electronics,299
+158,Lightning Cable 1m,electronics,399
+159,Phone Charger 20W,electronics,799
+160,Wired Earphones,electronics,349
+161,Power Bank 10000mAh,electronics,1299
+162,Pendrive 32GB,electronics,449
+163,Micro SD 64GB,electronics,599
+164,Mouse Wireless,electronics,649
+165,HDMI Cable 1.5m,electronics,349
+166,Screen Guard,electronics,199
+167,Phone Cover,electronics,299
+168,Laptop Sleeve 14in,electronics,799
+169,Dog Food 1kg,pet,420
+170,Cat Food 1kg,pet,450
+171,Cat Litter 5kg,pet,499
+172,Dog Treats 100g,pet,180
+173,Pet Shampoo 200ml,pet,299
+174,Chew Toy,pet,199
+175,Fish Food 50g,pet,120
+176,Pet Bowl,pet,149
