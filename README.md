@@ -110,10 +110,6 @@ docs/                        proposal, technical report (HTML + PDF), screenshot
 tools/generate_dataset.py
 ```
 
-## Team
+## Author
 
-| Name | ID | Contribution |
-|---|---|---|
-| _Member 1_ | _ID_ | _e.g. Bloom filter, trie, planner pipeline, API_ |
-| _Member 2_ | _ID_ | _e.g. set cover, metric TSP, benchmarks_ |
-| _Member 3_ | _ID_ | _e.g. frontend, tests, report_ |
+Shantanu Puthran (2405111). Individual submission: all algorithms, backend, frontend, tests, data and documentation.

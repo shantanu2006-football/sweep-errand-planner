@@ -79,7 +79,7 @@ figcaption { font-size: .78rem; color: var(--ink-3); margin-top: .35rem; }
 <h1>Sweep</h1>
 <p class="sub">One trip, every errand. An errand planner driven by a trie, Bloom filters, greedy set cover, a metric-TSP approximation and randomized selection.</p>
 <div class="meta">
-  <div><b>Team</b>Member 1 (ID) · Member 2 (ID) · Member 3 (ID)</div>
+  <div><b>Author</b>Shantanu Puthran (2405111)</div>
   <div><b>Backend</b>Java 21, Spring Boot 4.1 REST</div>
   <div><b>Frontend</b>HTML / CSS / vanilla JS</div>
   <div><b>Evidence</b>49 JUnit tests · 5 live benchmarks</div>
@@ -252,12 +252,11 @@ heldKarp: dp[S][v] = min_u dp[S\{v}][u] + d(u,v);  answer min_v dp[all][v] + d(v
 <li><strong>Synthetic data.</strong> Prices and stock are generated, not scraped, so no real shop's prices are represented.</li>
 </ul>
 
-<h2><span class="n">8</span>Individual contributions</h2>
+<h2><span class="n">8</span>Individual contribution</h2>
+<p>Individual submission (team of one). All design, implementation, testing and documentation by the author.</p>
 <div class="tw"><table>
 <tr><th>Member</th><th>Algorithms / modules</th><th>Other work</th></tr>
-<tr><td>Member 1 (ID)</td><td>Trie, BloomFilter, PlannerService pipeline</td><td>API validation, edge-case tests</td></tr>
-<tr><td>Member 2 (ID)</td><td>SetCover (greedy + DP), MetricTsp, DisjointSet</td><td>BenchmarkService, report §4–6</td></tr>
-<tr><td>Member 3 (ID)</td><td>RandomizedSelect</td><td>Frontend, dataset generator, README, demo</td></tr>
+<tr><td>Shantanu Puthran (2405111)</td><td>All: Trie, BloomFilter, SetCover (greedy + DP), MetricTsp, DisjointSet, RandomizedSelect, PlannerService</td><td>REST API and validation, BenchmarkService, frontend, dataset generator, tests, README, report</td></tr>
 </table></div>
 <p class="eyebrow" style="margin-top:2rem">Repository: run <code>./mvnw spring-boot:run</code> and open localhost:8080. Full setup in README.md.</p>
 </article>
