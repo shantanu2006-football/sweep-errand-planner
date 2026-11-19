@@ -1,0 +1,246 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Sweep</title>
+<meta name="description" content="Plan one trip for your whole errand list. Sweep picks the fewest, cheapest shops and the shortest route.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&family=Instrument+Sans:wght@400..700&family=JetBrains+Mono:wght@400;500;700&display=swap">
+<link rel="stylesheet" href="app.css">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='9' fill='%231F4BFF'/%3E%3Cpath d='M7 21c5 0 6-10 11-10s4 6 7 6' stroke='%23FFB000' stroke-width='3.4' fill='none' stroke-linecap='round'/%3E%3C/svg%3E">
+</head>
+<body>
+<canvas id="fx" aria-hidden="true"></canvas>
+
+<header class="top">
+  <a class="brand" href="#plan" aria-label="Sweep home">
+    <svg viewBox="0 0 64 28" class="brand-mark" aria-hidden="true"><path class="brand-swoosh" d="M3 22c10 0 12-17 24-17s9 12 16 12 9-7 18-7"/><circle class="brand-dot" cx="61" cy="10" r="3"/></svg>
+    <span>sweep</span>
+  </a>
+  <nav class="tabs" role="tablist" aria-label="Sections">
+    <a role="tab" href="#plan" data-view="plan" class="tab">Plan</a>
+    <a role="tab" href="#xray" data-view="xray" class="tab">X-ray</a>
+    <a role="tab" href="#lab" data-view="lab" class="tab">Lab</a>
+    <a role="tab" href="#how" data-view="how" class="tab">How it works</a>
+    <span class="tab-ink" aria-hidden="true"></span>
+  </nav>
+  <div class="top-right">
+    <span class="api-dot" id="apiDot" title="Java backend status"></span>
+    <button class="icon-btn" id="themeBtn" aria-label="Toggle dark mode" title="Toggle theme">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a9 9 0 1 0 9 9 7 7 0 0 1-9-9z"/></svg>
+    </button>
+  </div>
+</header>
+
+<main>
+<!-- ============================================================ PLAN -->
+<section class="view" id="view-plan" data-view="plan">
+  <aside class="panel builder">
+    <div class="panel-head">
+      <p class="eyebrow">Your list</p>
+      <h1 class="display">One trip.<br><span class="hl">Every errand.</span></h1>
+    </div>
+
+    <div class="search" role="combobox" aria-expanded="false" aria-owns="suggestList" aria-haspopup="listbox" id="searchBox">
+      <svg class="search-ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+      <input id="searchInput" type="text" autocomplete="off" spellcheck="false" placeholder="Add an item: milk, dal, charger…" aria-autocomplete="list" aria-controls="suggestList">
+      <kbd>/</kbd>
+      <ul class="suggest" id="suggestList" role="listbox" hidden></ul>
+    </div>
+    <p class="trie-meter mono" id="trieMeter">Trie index ready · type to search 176 items</p>
+
+    <div class="presets" id="presets" aria-label="Example lists"></div>
+
+    <ul class="list" id="list" aria-live="polite"></ul>
+    <p class="list-empty" id="listEmpty" hidden>Your list is empty. Search above or tap an example list.</p>
+
+    <div class="knobs">
+      <div class="knob">
+        <label for="hour">Leaving at <output id="hourOut" class="mono">18:00</output></label>
+        <input type="range" id="hour" min="0" max="23" step="1" value="18">
+        <div class="knob-scale mono"><span>00</span><span>06</span><span>12</span><span>18</span><span>23</span></div>
+      </div>
+      <div class="knob">
+        <span class="knob-label">Getting around</span>
+        <div class="seg" role="radiogroup" id="modeSeg">
+          <button role="radio" data-mode="walk" aria-checked="false">Walk</button>
+          <button role="radio" data-mode="cycle" aria-checked="false">Cycle</button>
+          <button role="radio" data-mode="auto" aria-checked="true">Auto</button>
+        </div>
+      </div>
+      <div class="knob">
+        <label for="lambda">Price vs. distance <output id="lambdaOut" class="mono">1.0</output></label>
+        <input type="range" id="lambda" min="0" max="3" step="0.1" value="1">
+        <div class="knob-scale"><span>Fewest km</span><span>Cheapest basket</span></div>
+      </div>
+      <div class="knob">
+        <label for="stopCost">Cost of one extra stop <output id="stopOut" class="mono">₹40</output></label>
+        <input type="range" id="stopCost" min="0" max="200" step="5" value="40">
+      </div>
+    </div>
+
+    <button class="go" id="goBtn"><span class="go-label">Sweep it</span><span class="go-sub mono" id="goSub">set home on the map · then go</span></button>
+    <div class="err" id="err" role="alert" hidden></div>
+  </aside>
+
+  <div class="stage">
+    <div class="map-wrap" id="mapWrap">
+      <svg id="map" viewBox="0 0 800 600" role="img" aria-label="Map of Powai with stores and your route">
+        <defs>
+          <pattern id="grid" width="50" height="50" patternUnits="userSpaceOnUse"><path d="M50 0H0V50" class="grid-line"/></pattern>
+          <filter id="glow" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="4" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+          <radialGradient id="homeHalo"><stop offset="0" class="halo-a"/><stop offset="1" class="halo-b"/></radialGradient>
+        </defs>
+        <rect width="800" height="600" class="map-bg"/>
+        <rect width="800" height="600" fill="url(#grid)"/>
+        <g id="terrain"></g>
+        <g id="roads"></g>
+        <g id="labels"></g>
+        <g id="mstLayer"></g>
+        <g id="routeLayer"></g>
+        <g id="ringLayer"></g>
+        <g id="storeLayer"></g>
+        <g id="flyLayer"></g>
+        <g id="homeLayer"></g>
+        <g id="runnerLayer"></g>
+      </svg>
+      <div class="map-hud">
+        <div class="ticker" id="ticker" aria-live="polite">
+          <span class="ticker-step mono" id="tickerStep">READY</span>
+          <span class="ticker-text" id="tickerText">Tap the map to move home, then press Sweep it.</span>
+        </div>
+        <div class="coord mono" id="coord" aria-hidden="true">— km E · — km S</div>
+      </div>
+      <div class="legend" id="legend"></div>
+      <div class="scale-bar mono" aria-hidden="true"><span></span>1 km</div>
+      <div class="store-card" id="storeCard" hidden></div>
+    </div>
+
+    <div class="results" id="results">
+      <div class="totals" id="totals">
+        <div class="tot"><span class="tot-k">Basket</span><span class="tot-v mono" data-count="basket">₹—</span></div>
+        <div class="tot"><span class="tot-k">Route</span><span class="tot-v mono" data-count="km">— km</span></div>
+        <div class="tot"><span class="tot-k">Stops</span><span class="tot-v mono" data-count="stops">—</span></div>
+        <div class="tot"><span class="tot-k">Time out</span><span class="tot-v mono" data-count="minutes">— min</span></div>
+        <div class="tot tot-wide"><span class="tot-k">vs. city median prices</span><span class="tot-v mono" data-count="saved">—</span></div>
+      </div>
+      <div class="res-grid">
+        <div class="receipt-wrap">
+          <div class="receipt" id="receipt">
+            <p class="receipt-empty mono">Your stop-by-stop pick list prints here.</p>
+          </div>
+        </div>
+        <div class="compare" id="compare">
+          <p class="eyebrow">Compared with how most people shop</p>
+          <div id="compareBars"><p class="muted">Run a plan to compare it against two common strategies.</p></div>
+          <div id="unmet"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================ X-RAY -->
+<section class="view" id="view-xray" data-view="xray" hidden>
+  <div class="xray-head">
+    <p class="eyebrow">Inside the last plan</p>
+    <h2 class="display">X-ray</h2>
+    <p class="lede">Every step below is real output from the Java engine for the plan you just ran. Click any cell to see the bits behind it.</p>
+  </div>
+  <div class="xray-empty" id="xrayEmpty">
+    <p>Run a plan first. The X-ray then shows the Bloom pre-screen, the set-cover picks, the route construction and the price checks.</p>
+    <a class="btn" href="#plan">Go to Plan</a>
+  </div>
+  <div class="xray" id="xray" hidden>
+    <article class="stage-card" id="xBloom">
+      <header><span class="stage-no mono">1</span><div><h3>Bloom pre-screen</h3><p>Each store keeps a tiny bit-array sketch of what it stocks. A 0 bit proves the item is absent, so the store is skipped. A full match only means "possibly", so it is confirmed against the real inventory.</p></div></header>
+      <div class="kpis" id="bloomKpis"></div>
+      <div class="bloom-legend"><span class="sw sw-no"></span>Definitely not<span class="sw sw-fp"></span>False positive, caught by exact check<span class="sw sw-low"></span>Stocked, too few units<span class="sw sw-yes"></span>Confirmed</div>
+      <div class="bloom-grid-wrap"><div class="bloom-grid" id="bloomGrid"></div></div>
+      <div class="bitview" id="bitview"><p class="muted">Click a cell to open that store's bit array.</p></div>
+    </article>
+
+    <article class="stage-card" id="xCover">
+      <header><span class="stage-no mono">2</span><div><h3>Greedy weighted set cover</h3><p>Each round picks the store with the lowest cost per newly covered item. Cost = stop cost + travel to and from home, plus λ × price premium. With λ = 0 the result is guaranteed within H(n) of optimal. We also solve it exactly by DP over all 2ⁿ item subsets to check.</p></div></header>
+      <div class="kpis" id="coverKpis"></div>
+      <ol class="cover-steps" id="coverSteps"></ol>
+    </article>
+
+    <article class="stage-card" id="xRoute">
+      <header><span class="stage-no mono">3</span><div><h3>Metric TSP: double-tree + 2-opt</h3><p>Kruskal builds a minimum spanning tree, with edges sorted by our randomized quicksort and cycles blocked by union-find. A preorder walk with shortcuts gives a tour at most 2× optimal. 2-opt then uncrosses edges. For small trips we also run exact Held-Karp to measure the gap.</p></div></header>
+      <div class="route-lab">
+        <svg id="routeMini" viewBox="0 0 800 600" role="img" aria-label="Route construction"></svg>
+        <div class="route-side">
+          <div class="seg seg-sm" id="routeSeg" role="radiogroup">
+            <button role="radio" data-r="mst" aria-checked="false">MST</button>
+            <button role="radio" data-r="pre" aria-checked="false">Preorder</button>
+            <button role="radio" data-r="final" aria-checked="true">After 2-opt</button>
+          </div>
+          <div id="routeBars"></div>
+        </div>
+      </div>
+    </article>
+
+    <article class="stage-card" id="xDeals">
+      <header><span class="stage-no mono">4</span><div><h3>Price check with randomized quickselect</h3><p>For every item, the median price across all Powai stores is found in expected O(n) with a random pivot. A full sort is never needed. The marker shows where your price sits.</p></div></header>
+      <div id="deals" class="deals"></div>
+    </article>
+  </div>
+</section>
+
+<!-- ============================================================ LAB -->
+<section class="view" id="view-lab" data-view="lab" hidden>
+  <div class="xray-head">
+    <p class="eyebrow">Benchmarks, run live on the Java server</p>
+    <h2 class="display">Lab</h2>
+    <p class="lede">Fixed seeds, JIT warm-up, median of 5 runs. Times depend on the machine, but ratios and counts are reproducible.</p>
+    <button class="btn" id="benchAll">Run all benchmarks</button>
+  </div>
+  <div class="lab" id="lab"></div>
+</section>
+
+<!-- ============================================================ HOW -->
+<section class="view" id="view-how" data-view="how" hidden>
+  <div class="how">
+    <div class="xray-head">
+      <p class="eyebrow">Advanced Algorithms · CIA 3</p>
+      <h2 class="display">How Sweep thinks</h2>
+      <p class="lede">You have a list and limited time. Most people go to the nearest shop, then the next nearest, until they've got everything. Others chase the lowest price per item and zig-zag across the suburb. Sweep treats the trip as two textbook problems and solves both.</p>
+    </div>
+    <ol class="pipeline" id="pipeline"></ol>
+    <div class="table-wrap">
+      <table class="cx">
+        <thead><tr><th>Stage</th><th>Algorithm</th><th>Unit</th><th>Time</th><th>Space</th><th>Guarantee</th></tr></thead>
+        <tbody>
+          <tr><td>Search</td><td>Trie over word-start suffixes</td><td>4 · CO3</td><td class="mono">O(|p| + V)</td><td class="mono">O(Σ chars)</td><td>Exact prefix matches</td></tr>
+          <tr><td>Pre-screen</td><td>Bloom filter, double hashing, random salt</td><td>6 · CO5</td><td class="mono">O(k)</td><td class="mono">m bits</td><td>No false negatives; FP ≈ (1−e<sup>−kn/m</sup>)<sup>k</sup></td></tr>
+          <tr><td>Store choice</td><td>Greedy weighted set cover</td><td>5 · CO4</td><td class="mono">O(m·n·picks)</td><td class="mono">O(m·n)</td><td>≤ H(n)·OPT when λ = 0</td></tr>
+          <tr><td>Baseline</td><td>Exact set cover DP</td><td>5/6 · CO6</td><td class="mono">O(2ⁿ·m)</td><td class="mono">O(2ⁿ)</td><td>Optimal (n ≤ 16)</td></tr>
+          <tr><td>Route</td><td>Kruskal + DSU, preorder shortcut, 2-opt</td><td>2, 5 · CO2, CO4</td><td class="mono">O(n² log n)</td><td class="mono">O(n²)</td><td>≤ 2·OPT (triangle inequality)</td></tr>
+          <tr><td>Baseline</td><td>Held-Karp DP</td><td>6 · CO6</td><td class="mono">O(n²·2ⁿ)</td><td class="mono">O(n·2ⁿ)</td><td>Optimal (n ≤ 13)</td></tr>
+          <tr><td>Edge sort</td><td>Randomized quicksort, 3-way</td><td>6 · CO5</td><td class="mono">O(E log E) exp.</td><td class="mono">O(log E)</td><td>Fast on any input order</td></tr>
+          <tr><td>Prices</td><td>Randomized quickselect, 3-way</td><td>6 · CO5</td><td class="mono">O(n) expected</td><td class="mono">O(1)</td><td>Exact k-th value</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="np">
+      <h3>Why approximate?</h3>
+      <p>Set cover and TSP are both NP-hard. Exact solvers blow up exponentially: Held-Karp on 25 stops would need about 2·10<sup>10</sup> table cells. Sweep therefore runs polynomial algorithms with proven bounds. On small trips it also runs the exact solvers, so you can see the true gap instead of trusting the bound. It never claims a route is optimal unless Held-Karp has confirmed it.</p>
+      <h3>Assumptions and limits</h3>
+      <ul>
+        <li>Distances are straight-line × 1.3 road factor. Scaling keeps the triangle inequality the 2-approximation needs. Real road graphs can break it.</li>
+        <li>The dataset is synthetic but realistic: 36 Powai shops, 176 items, 770 listings with prices and stock levels. A seeded Python script generates it reproducibly.</li>
+        <li>Each item is bought at a single store. If no open store has enough units, Sweep reports it instead of splitting the purchase or guessing.</li>
+        <li>With λ &gt; 0 the price-premium term is a heuristic and has no H(n) guarantee. The UI says so.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+</main>
+
+<div class="toast" id="toast" role="status" hidden></div>
+<script src="app.js"></script>
+</body>
+</html>
