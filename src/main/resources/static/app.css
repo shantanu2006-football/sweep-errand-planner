@@ -89,7 +89,7 @@ main { max-width: 1480px; margin: 0 auto; padding-block: .5rem 4rem; }
 @keyframes viewIn { from { opacity: .3; transform: translateY(10px); } }
 #view-plan { display: grid; grid-template-columns: minmax(300px, 380px) minmax(0, 1fr); gap: 1.25rem; align-items: start; }
 .panel { background: var(--panel); border-radius: calc(var(--r) + 6px); box-shadow: var(--shadow); padding: 1.4rem; }
-.builder { position: sticky; top: calc(env(safe-area-inset-top, 0px) + 76px); display: flex; flex-direction: column; gap: 1rem; max-height: calc(100vh - 96px); overflow: auto; scrollbar-width: thin; }
+.builder { position: sticky; top: calc(env(safe-area-inset-top, 0px) + 76px); display: flex; flex-direction: column; gap: 1rem; max-height: calc(100dvh - 92px); overflow: auto; scrollbar-width: thin; padding-bottom: 1rem; }
 .builder .display { font-size: var(--t-2xl); }
 
 .search { position: relative; }
@@ -146,11 +146,13 @@ input[type="range"]:active::-webkit-slider-thumb { transform: scale(1.25); }
 .seg button[aria-checked="true"] { background: var(--panel); color: var(--ink); box-shadow: 0 1px 3px #0002; }
 .seg-sm button { font-size: var(--t-xs); }
 
-.go { position: relative; overflow: hidden; display: grid; gap: .1rem; justify-items: start; padding: 1rem 1.2rem; border: 0; border-radius: 14px; background: var(--ink); color: var(--paper); text-align: left; transition: transform .2s cubic-bezier(.3,1.5,.5,1), box-shadow .2s; box-shadow: 0 10px 24px -10px var(--ink); }
+.go { position: sticky; bottom: 0; z-index: 6; flex: none; overflow: hidden; display: grid; gap: .1rem; justify-items: start; padding: 1rem 1.2rem; border: 0; border-radius: 14px; background: var(--ink); color: var(--paper); text-align: left; transition: transform .2s cubic-bezier(.3,1.5,.5,1), box-shadow .2s; box-shadow: 0 10px 24px -10px var(--ink); }
 .go::before { content: ""; position: absolute; inset: 0; background: linear-gradient(110deg, transparent 30%, color-mix(in srgb, var(--marigold) 45%, transparent) 50%, transparent 70%); transform: translateX(-100%); }
 .go:hover::before { animation: sheen 1s ease; }
 @keyframes sheen { to { transform: translateX(100%); } }
 .go:hover { transform: translateY(-2px); }
+/* soft fade so list items scroll away under the pinned button */
+.builder .go { box-shadow: 0 10px 24px -10px var(--ink), 0 -18px 18px -4px var(--panel); }
 .go:active { transform: translateY(1px) scale(.99); }
 .go-label { font: 800 var(--t-xl)/1 var(--f-display); letter-spacing: -.02em; }
 .go-label::after { content: " →"; color: var(--marigold); display: inline-block; transition: transform .3s; }
