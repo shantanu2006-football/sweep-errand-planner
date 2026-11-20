@@ -209,16 +209,17 @@ export function createCity(container, opts) {
       g.userData.halo.material.opacity = on ? .55 : .08; g.userData.base.material.opacity = on ? .8 : .15;
     });
     if (!plan || !plan.stops.length) return;
-    const ptsGrid = [home, ...plan.stops.map(s => ({ x: s.x, y: s.y })), home];
+    // follow the server's road path (Dijkstra shortest paths between stops)
+    const ptsGrid = plan.route.path.map(([x, y]) => ({ x, y }));
     const path = new THREE.CurvePath();
     for (let i = 1; i < ptsGrid.length; i++) {
-      const a = W(ptsGrid[i - 1].x, ptsGrid[i - 1].y, .06), b = W(ptsGrid[i].x, ptsGrid[i].y, .06);
-      const mid = a.clone().lerp(b, .5); mid.y += Math.min(.5, a.distanceTo(b) * .22); // gentle arc between stops
-      path.add(new THREE.QuadraticBezierCurve3(a, mid, b));
+      const a = W(ptsGrid[i - 1].x, ptsGrid[i - 1].y, .03), b = W(ptsGrid[i].x, ptsGrid[i].y, .03);
+      if (a.distanceTo(b) > 1e-5) path.add(new THREE.LineCurve3(a, b));
     }
     const col = new THREE.Color(P().route);
-    const tube = new THREE.Mesh(new THREE.TubeGeometry(path, 400, .014, 10, false), new THREE.MeshStandardMaterial({ color: col, emissive: col, emissiveIntensity: 1.1, roughness: .3 }));
-    const outer = new THREE.Mesh(new THREE.TubeGeometry(path, 400, .04, 10, false), new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: .18, depthWrite: false, blending: THREE.AdditiveBlending }));
+    const segs = Math.min(1600, Math.max(400, ptsGrid.length * 12));
+    const tube = new THREE.Mesh(new THREE.TubeGeometry(path, segs, .014, 10, false), new THREE.MeshStandardMaterial({ color: col, emissive: col, emissiveIntensity: 1.1, roughness: .3 }));
+    const outer = new THREE.Mesh(new THREE.TubeGeometry(path, segs, .04, 10, false), new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: .18, depthWrite: false, blending: THREE.AdditiveBlending }));
     tube.geometry.setDrawRange(0, 0); outer.geometry.setDrawRange(0, 0);
     routeGroup.add(tube, outer);
     const shadowLine = new THREE.Line(new THREE.BufferGeometry().setFromPoints(ptsGrid.map(p => W(p.x, p.y, .007))), new THREE.LineDashedMaterial({ color: col, dashSize: .05, gapSize: .04, transparent: true, opacity: .6 }));

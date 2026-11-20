@@ -63,10 +63,11 @@ async function api(path, opts) {
 async function boot() {
   initTheme();
   initTabs();
-  drawTerrain();
   bindBuilder();
   try {
-    const [stores, items] = await Promise.all([api("/stores"), api("/items")]);
+    const [stores, items, roads] = await Promise.all([api("/stores"), api("/items"), api("/roads")]);
+    ROADS = roads;
+    drawTerrain();
     S.stores = stores; stores.forEach(s => S.storeById[s.id] = s);
     S.items = items; items.forEach(i => S.itemByName[i.name.toLowerCase()] = i);
     $("#apiDot").classList.add("ok"); $("#apiDot").title = "Java backend connected";
@@ -114,21 +115,7 @@ function moveInk() {
 }
 
 /* ================================================================ map: terrain */
-const ROADS = [
-  { name: "JVLR", w: 9, pts: [[0, 5.0], [1.4, 5.15], [2.5, 5.25], [3.7, 5.2], [5, 5.1], [6.4, 5.2], [8, 5.45]] },
-  { name: "Saki Vihar Rd", w: 8, pts: [[4.3, 5.1], [4.9, 4.55], [5.3, 4.2], [6.5, 3.6], [8, 3.15]] },
-  { name: "Adi Shankaracharya Marg", w: 8, pts: [[0, 2.7], [0.6, 2.45], [1.2, 2.2], [2.2, 2.05], [3.2, 2.3], [4.0, 3.0], [4.5, 3.6], [4.35, 5.1]] },
-  { name: "Hiranandani Main", w: 7, pts: [[4.0, 3.0], [5.0, 2.65], [6.0, 2.15], [6.9, 1.6], [8, 1.0]] },
-  { name: "Central Ave", w: 6, pts: [[4.55, 2.35], [5.0, 3.0], [5.25, 3.5], [5.75, 4.6], [5.9, 5.15]] },
-  { name: "IIT Main Rd", w: 6, pts: [[0.9, 1.55], [1.6, 1.8], [2.4, 2.02], [3.0, 1.5], [3.6, 0.95], [4.6, 0.15]] },
-  { name: "LBS Link", w: 6, pts: [[0, 3.3], [0.7, 3.25], [1.3, 3.05], [1.55, 4.0], [2.2, 4.9], [2.5, 5.25]] },
-  { name: "Chandivali Farm Rd", w: 6, pts: [[5.85, 1.5], [6.2, 2.1], [6.6, 2.7], [7.05, 3.35]] },
-  { name: "", w: 4, pts: [[0.7, 1.1], [0.95, 1.6], [1.2, 2.2]] },
-  { name: "", w: 4, pts: [[3.05, 3.95], [3.6, 3.6], [4.1, 3.75], [4.5, 3.6]] },
-  { name: "", w: 4, pts: [[5.25, 3.5], [6.0, 3.95], [6.5, 3.6]] },
-  { name: "", w: 4, pts: [[7.0, 1.4], [7.4, 1.1], [7.9, 1.05]] },
-  { name: "", w: 4, pts: [[4.05, 5.2], [4.1, 5.6], [3.9, 6]] }
-];
+let ROADS = [];   // loaded from /api/roads: the exact graph the Java planner routes over
 const LAKE = [[1.78, 2.95], [1.85, 2.6], [2.1, 2.42], [2.45, 2.38], [2.75, 2.5], [2.95, 2.78], [2.92, 3.12], [2.75, 3.4], [2.45, 3.55], [2.12, 3.5], [1.9, 3.3]];
 const PARKS = [
   [[2.0, 0.35], [3.3, 0.2], [4.2, 0.35], [3.9, 1.2], [3.1, 1.75], [2.2, 1.7], [1.7, 1.05]],
@@ -441,15 +428,14 @@ async function choreograph(plan, runId) {
 
   // ---- 4. Tour
   if (City3D.city) City3D.city.setPlan(plan);
-  const ord = plan.route.order.map(P);
-  const pts = [...ord, S.home];
+  const pts = plan.route.path.map(([x, y]) => ({ x, y }));   // shortest road paths (Dijkstra), not straight lines
   const d = "M" + pts.map(p => `${p.x * PX},${p.y * PX}`).join("L");
   const rl = $("#routeLayer");
   svg("path", { d, class: "route-casing" }, rl);
   const line = svg("path", { d, class: "route-line" }, rl);
   const len = line.getTotalLength();
   const ratio = plan.route.ratioToOptimal;
-  ticker("4/5 ROUTE", `Preorder walk ${plan.route.preorderKm.toFixed(2)} km → 2-opt ${plan.route.km.toFixed(2)} km (${plan.route.twoOptMoves} swap${plan.route.twoOptMoves === 1 ? "" : "s"})` + (ratio != null ? ` · ${ratio <= 1.0001 ? "optimal, confirmed by Held-Karp" : (ratio * 100 - 100).toFixed(1) + "% above optimal"}` : ""));
+  ticker("4/5 ROUTE", `Along real roads (Dijkstra, ${plan.route.dijkstraRuns} runs) · preorder walk ${plan.route.preorderKm.toFixed(2)} km → 2-opt ${plan.route.km.toFixed(2)} km (${plan.route.twoOptMoves} swap${plan.route.twoOptMoves === 1 ? "" : "s"})` + (ratio != null ? ` · ${ratio <= 1.0001 ? "optimal, confirmed by Held-Karp" : (ratio * 100 - 100).toFixed(1) + "% above optimal"}` : ""));
   line.style.strokeDasharray = len; line.style.strokeDashoffset = len;
   await line.animate([{ strokeDashoffset: len }, { strokeDashoffset: 0 }], { duration: REDUCED ? 1 : 1400, easing: "cubic-bezier(.6,0,.2,1)", fill: "forwards" }).finished;
   line.style.strokeDasharray = "none";

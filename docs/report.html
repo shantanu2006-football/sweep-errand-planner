@@ -82,7 +82,7 @@ figcaption { font-size: .78rem; color: var(--ink-3); margin-top: .35rem; }
   <div><b>Author</b>Shantanu Puthran (2405111)</div>
   <div><b>Backend</b>Java 21, Spring Boot 4.1 REST</div>
   <div><b>Frontend</b>HTML / CSS / vanilla JS</div>
-  <div><b>Evidence</b>62 JUnit tests · 6 live benchmarks</div>
+  <div><b>Evidence</b>70 JUnit tests · 6 live benchmarks</div>
 </div>
 
 <h2><span class="n">1</span>Problem statement</h2>
@@ -110,7 +110,7 @@ figcaption { font-size: .78rem; color: var(--ink-3); margin-top: .35rem; }
 </ul>
 
 <h2><span class="n">2</span>Data</h2>
-<p>A seeded Python generator (<code>tools/generate_dataset.py</code>, seed 42) produces a <strong>realistic synthetic</strong> dataset committed to <code>data/</code>: 176 items in 12 categories with MRP-style base prices, 36 shops of 9 types (supermarket, kirana, pharmacy, bakery, fruit &amp; veg, stationery, hardware, electronics, pet) placed around real Powai localities, and 770 inventory listings. Each listing price = base × store-type multiplier × U(0.88, 1.15). Stock is 3–40, with about 6% deliberately set to 1–2 units so quantity feasibility matters. Opening hours vary, and some pharmacies are open 24 hours. Distances are straight-line × 1.3 road factor. Multiplying a metric by a positive constant keeps it a metric, so the triangle inequality the TSP bound relies on holds. <code>MetricTsp.validate</code> also checks it explicitly at run time.</p>
+<p>A seeded Python generator (<code>tools/generate_dataset.py</code>, seed 42) produces a <strong>realistic synthetic</strong> dataset committed to <code>data/</code>: 176 items in 12 categories with MRP-style base prices, 36 shops of 9 types (supermarket, kirana, pharmacy, bakery, fruit &amp; veg, stationery, hardware, electronics, pet) placed around real Powai localities, and 770 inventory listings. Each listing price = base × store-type multiplier × U(0.88, 1.15). Stock is 3–40, with about 6% deliberately set to 1–2 units so quantity feasibility matters. Opening hours vary, and some pharmacies are open 24 hours. Distances are <strong>real road distances</strong>. <code>data/roads.json</code> holds 29 Powai roads and lanes. <code>RoadNetwork</code> splits them at every crossing and T-junction into a graph, joins each shop and the home to the nearest road, and runs <strong>Dijkstra with our own binary heap</strong> (Unit 2, O((V+E) log V)) for shortest paths. Shortest-path distances on an undirected graph are a metric (joining two shortest paths is a valid path), so the TSP 2-approximation bound holds. <code>MetricTsp.validate</code> also checks the triangle inequality at run time. The map draws exactly the road paths the planner used.</p>
 
 <h2><span class="n">3</span>System design</h2>
 <svg class="arch" viewBox="0 0 760 300" role="img" aria-label="Architecture diagram">
@@ -187,7 +187,7 @@ heldKarp: dp[S][v] = min_u dp[S\{v}][u] + d(u,v);  answer min_v dp[all][v] + d(v
 <p><strong>Correctness:</strong> after the 3-way partition, positions lt..gt hold exactly the pivot value, with smaller values to the left and larger to the right. So a[k] is final when lt ≤ k ≤ gt, and otherwise the k-th element lies in the side that is kept (loop invariant). <strong>Complexity:</strong> expected O(n). A uniformly random pivot lands in the middle half with probability ½, shrinking the range to at most ¾, so the expected work is a geometric series ≤ 4n·c. The 3-way partition keeps all-equal arrays, which are common for prices, linear. A plain Lomuto partition would be Θ(n²) on them. The deterministic first-pivot baseline is Θ(n²) on sorted input, as §6 shows. Used for per-item city median, min and max (deal score) and, as randomized quicksort, for Kruskal's edge order.</p>
 
 <h2><span class="n">5</span>Testing</h2>
-<p><span class="ok">62 JUnit 5 tests, all passing</span> (<code>./mvnw test</code>). Every core algorithm has at least five, each including a boundary or edge case:</p>
+<p><span class="ok">70 JUnit 5 tests, all passing</span> (<code>./mvnw test</code>). Every core algorithm has at least five, each including a boundary or edge case:</p>
 <div class="tw"><table>
 <tr><th>Class</th><th class="num">Tests</th><th>Edge / boundary / stress cases</th></tr>
 <tr><td>TrieTest</td><td class="num">8</td><td>empty prefix, missing prefix, mid-word substring not matched, k limit, invalid args, 2,000-name stress vs linear scan</td></tr>
@@ -197,8 +197,9 @@ heldKarp: dp[S][v] = min_u dp[S\{v}][u] + d(u,v);  answer min_v dp[all][v] + d(v
 <tr><td>RandomizedSelectTest</td><td class="num">7</td><td>every rank vs sort, single element, 200k all-duplicates (linear time), percentile 0/100, caller array untouched, empty / out-of-range k</td></tr>
 <tr><td>SetCoverTest</td><td class="num">7</td><td>empty universe, uncoverable element reported, classic greedy trap within H(n), exact DP vs 2<sup>m</sup> brute force on 30 instances, λ behaviour, invalid input</td></tr>
 <tr><td>MetricTspTest</td><td class="num">6</td><td>n = 1, 2, duplicate points, 2× bound on 40 instances, MST vs Prim, Held-Karp vs permutation brute force, non-metric rejection</td></tr>
+<tr><td>DijkstraTest</td><td class="num">7</td><td>vs Floyd-Warshall on 30 random graphs, unreachable vertex, zero weights, single vertex, heap order with growth, copy isolation, negative weights rejected</td></tr>
 <tr><td>DisjointSetTest</td><td class="num">5</td><td>n = 0, 200k-element chain, idempotent union</td></tr>
-<tr><td>PlannerServiceTest</td><td class="num">9</td><td>end-to-end stock check, no Bloom false negatives, empty list, unknown item + suggestion, duplicate merge, 2 AM (closed shops), qty above any stock, all-invalid parameters, route ≤ 2·OPT</td></tr>
+<tr><td>PlannerServiceTest</td><td class="num">9</td><td>end-to-end stock check, route follows roads home → home (drawn length = reported km, never shorter than straight line), no Bloom false negatives, empty list, unknown item + suggestion, duplicate merge, 2 AM (closed shops), qty above any stock, all-invalid parameters, route ≤ 2·OPT</td></tr>
 </table></div>
 
 <h2><span class="n">6</span>Benchmarks</h2>
@@ -266,7 +267,7 @@ heldKarp: dp[S][v] = min_u dp[S\{v}][u] + d(u,v);  answer min_v dp[all][v] + d(v
 
 <h2><span class="n">7</span>Limitations and failure cases</h2>
 <ul>
-<li><strong>Metric assumption.</strong> Straight-line × 1.3 is a metric, but real road networks (one-ways, flyovers) can violate symmetry or the triangle inequality, and then the 2× bound no longer holds. A real deployment would compute shortest-path distances, which are metric by construction, and pass them to the same code.</li>
+<li><strong>Road model.</strong> Roads are undirected and hand-digitised at street level, with no one-ways or traffic. One-way streets would make distances asymmetric, and the symmetric 2× TSP bound would then not apply.</li>
 <li><strong>Set-cover cost model.</strong> The round-trip-from-home proxy over-estimates the marginal detour of a shop near other chosen shops. The H(n) guarantee is with respect to this proxy cost, not the final route length. With λ &gt; 0 there is no guarantee at all.</li>
 <li><strong>Single-shop purchase per item.</strong> If no open shop has the full quantity but several together do, Sweep reports the item as unmet instead of splitting it. This is a deliberate simplification, and splitting would be a max-flow extension.</li>
 <li><strong>Exact baselines are bounded</strong> to n ≤ 16 (set cover) and ≤ 13 nodes (Held-Karp). Above that, only the bounds are reported.</li>

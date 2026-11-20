@@ -6,7 +6,8 @@ Sweep plans a single trip for a whole errand list. You type what you need, set w
 1. finds items as you type (**trie**, Unit 4)
 2. screens 36 Powai shops' stock in microseconds (**Bloom filters** + exact confirmation, Unit 6)
 3. picks the fewest, cheapest set of shops that covers the list (**greedy weighted set cover**, Unit 5, checked against an exact DP)
-4. orders the stops into a short loop from home (**metric-TSP 2-approximation**: Kruskal MST with **union-find**, preorder shortcut, 2-opt; Units 2 and 5, checked against Held-Karp)
+4. measures real road distances over a Powai street graph (**Dijkstra with our own binary heap**, Unit 2) and
+4b. orders the stops into a short loop from home (**metric-TSP 2-approximation**: Kruskal MST with **union-find**, preorder shortcut, 2-opt; Units 2 and 5, checked against Held-Karp)
 5. tells you whether each price is a deal (**randomized quickselect** medians, Unit 6)
 
 Then it hands the trip over: **one-tap Google Maps directions** with every stop as a waypoint, a **WhatsApp-ready plan**, and warnings for shops that would close before you arrive. The route can be viewed on an animated 2D map or flown through in a **procedural 3D Powai** (Three.js, bundled locally so the demo works offline), with a night mode.
@@ -38,7 +39,7 @@ Open **http://localhost:8080**. Port is configurable with `PORT=9090 ./mvnw spri
 Tests and a runnable jar:
 
 ```bash
-./mvnw test                     # 62 JUnit tests
+./mvnw test                     # 70 JUnit tests
 ./mvnw -DskipTests package && java -jar target/sweep-1.0.0.jar
 ```
 
@@ -102,18 +103,20 @@ Errors come back as `400 {"error": "...", "details": ["every problem found"]}`. 
 - `stores.csv`: 36 shops of 9 types around real Powai localities, with opening hours (some pharmacies are 24 h)
 - `inventory.csv`: 770 listings with price (base × type multiplier × U(0.88, 1.15)) and stock (about 6% deliberately low)
 
-Assumptions: coordinates are approximate positions on a flat km grid. Travel distance = 1.3 × straight-line distance. Scaling a Euclidean metric keeps the triangle inequality that the TSP 2-approximation needs.
+- `roads.json`: 29 roads and lanes (polylines in km). The backend turns them into a graph and routes along them with Dijkstra (`GET /api/roads` returns what the map draws).
+
+Assumptions: coordinates are approximate positions on a flat km grid. Distances are shortest road paths, which form a metric, so the TSP 2-approximation holds.
 
 ## Project layout
 
 ```
 src/main/java/edu/atlas/sweep/
-  algo/      Trie, Kmp, BloomFilter, RandomizedSelect, DisjointSet, SetCover, MetricTsp   <- assessed algorithms
-  domain/    City (dataset loader, indexes)
+  algo/      Trie, Kmp, Dijkstra (+ binary heap), BloomFilter, RandomizedSelect, DisjointSet, SetCover, MetricTsp   <- assessed algorithms
+  domain/    City (dataset loader, indexes), RoadNetwork (road graph, shop/home attachment)
   service/   PlannerService (pipeline), ListParser (paste a list), BenchmarkService
   web/       ApiController (REST, validation, errors), Api (DTOs)
 src/main/resources/static/   index.html, app.css, app.js, city3d.js, vendor/three.module.min.js (MIT)
-src/test/java/...            62 JUnit tests (5+ per algorithm, edge + stress cases)
+src/test/java/...            70 JUnit tests (5+ per algorithm, edge + stress cases)
 data/                        dataset + sample requests
 docs/                        proposal, technical report (HTML + PDF), screenshots
 tools/generate_dataset.py
