@@ -66,7 +66,7 @@ public class ApiController {
         return city.stores().stream().map(s -> {
             BloomFilter bf = city.bloom(s.id());
             return new StoreDto(s.id(), s.name(), s.type(), s.area(), s.x(), s.y(), s.open(), s.close(),
-                    city.inventoryOf(s.id()).size(), bf.m(), bf.k(), bf.sizeBytes(), City.lat(s.y()), City.lng(s.x()));
+                    city.inventoryOf(s.id()).size(), bf.m(), bf.k(), bf.sizeBytes(), City.lat(s.x(), s.y()), City.lng(s.x(), s.y()));
         }).toList();
     }
 

@@ -209,7 +209,7 @@ public final class PlannerService {
             boolean risk = s.close() < 24 && arriveH > s.close() - 0.25;
             if (risk) notices.add(s.name() + " closes at " + s.close() + ":00 and you'd reach it around " + clock(arriveH) + " - leave earlier or swap it");
             stops.add(new Stop(s.id(), s.name(), s.type(), s.x(), s.y(), picks, sub, round(leg, 2), eta,
-                    City.lat(s.y()), City.lng(s.x()), clock(arriveH), s.close(), risk));
+                    City.lat(s.x(), s.y()), City.lng(s.x(), s.y()), clock(arriveH), s.close(), risk));
         }
         double km = rr.report.km();
         int minutes = (int) Math.round(km / speed * 60 + visiting.size() * MINUTES_PER_STOP);
@@ -345,7 +345,7 @@ public final class PlannerService {
             case "cycle" -> "bicycling";
             default -> "driving";
         };
-        String home = City.lat(hy) + "," + City.lng(hx);
+        String home = City.lat(hx, hy) + "," + City.lng(hx, hy);
         StringBuilder url = new StringBuilder("https://www.google.com/maps/dir/?api=1&origin=").append(home)
                 .append("&destination=").append(home).append("&travelmode=").append(travel);
         if (!stops.isEmpty()) {

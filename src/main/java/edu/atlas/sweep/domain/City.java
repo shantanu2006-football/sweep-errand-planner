@@ -83,13 +83,75 @@ public final class City {
     }
 
     /*
-     * Grid -> approximate real coordinates over Powai, Mumbai (for map hand-off only).
-     * x = 0..8 km east maps to lng 72.880..72.956; y = 0..6 km south maps to lat 19.135..19.081.
+     * Grid km -> real Powai coordinates, used only for the Google Maps hand-off.
+     *
+     * The drawn map is schematic (about 2.5x more spread out than real Powai), so a single
+     * linear transform cannot fit it. We anchor 7 named areas to their real coordinates:
+     *   1. least-squares affine fit grid -> (lat, lng) over the anchors
+     *   2. inverse-distance-weighted correction of the anchors' residuals (weights 1/d^2),
+     *      so every anchor maps exactly and points between them blend smoothly
+     *   3. anything that lands inside the real Powai Lake is pushed out to the shore
      */
-    public static final double LAT0 = 19.135, LNG0 = 72.880, KM_PER_DEG_LAT = 110.57, KM_PER_DEG_LNG = 105.2;
+    private static final double[][] ANCHORS = {   // grid x, grid y, lat, lng
+        {2.36, 2.97, 19.1272, 72.9046},   // Powai Lake (centre)
+        {2.95, 0.95, 19.1334, 72.9133},   // IIT Bombay
+        {4.95, 3.28, 19.1176, 72.9106},   // Hiranandani Gardens
+        {6.75, 2.05, 19.1102, 72.8970},   // Chandivali
+        {0.62, 3.95, 19.1296, 72.9283},   // Kanjurmarg West
+        {7.10, 3.00, 19.1170, 72.8910},   // Raheja Vihar
+        {6.40, 4.60, 19.1060, 72.8880},   // Saki Vihar Road
+    };
+    private static final double[] LAT_FIT = fit(2), LNG_FIT = fit(3);
+    static final double LAKE_LAT = 19.1265, LAKE_LNG = 72.9050, LAKE_RY_KM = 0.83, LAKE_RX_KM = 0.84;
 
-    public static double lat(double y) { return Math.round((LAT0 - y / KM_PER_DEG_LAT) * 1e6) / 1e6; }
-    public static double lng(double x) { return Math.round((LNG0 + x / KM_PER_DEG_LNG) * 1e6) / 1e6; }
+    public static double lat(double x, double y) { return toLatLng(x, y)[0]; }
+    public static double lng(double x, double y) { return toLatLng(x, y)[1]; }
+
+    public static double[] toLatLng(double x, double y) {
+        double la = LAT_FIT[0] + LAT_FIT[1] * x + LAT_FIT[2] * y;
+        double ln = LNG_FIT[0] + LNG_FIT[1] * x + LNG_FIT[2] * y;
+        double wsum = 0, dla = 0, dln = 0;
+        for (double[] a : ANCHORS) {
+            double d2 = (a[0] - x) * (a[0] - x) + (a[1] - y) * (a[1] - y);
+            double rla = a[2] - (LAT_FIT[0] + LAT_FIT[1] * a[0] + LAT_FIT[2] * a[1]);
+            double rln = a[3] - (LNG_FIT[0] + LNG_FIT[1] * a[0] + LNG_FIT[2] * a[1]);
+            if (d2 < 1e-12) { dla = rla; dln = rln; wsum = 1; break; }
+            double w = 1 / d2;
+            wsum += w; dla += w * rla; dln += w * rln;
+        }
+        la += dla / wsum; ln += dln / wsum;
+        // keep shops and homes out of the water: push to 8% beyond the lake's elliptical shore
+        double ey = (la - LAKE_LAT) * KM_PER_DEG_LAT / LAKE_RY_KM, ex = (ln - LAKE_LNG) * KM_PER_DEG_LNG / LAKE_RX_KM;
+        double r = Math.hypot(ex, ey);
+        if (r < 1.08 && !(Math.abs(x - ANCHORS[0][0]) < 1e-9 && Math.abs(y - ANCHORS[0][1]) < 1e-9)) {
+            double k = r < 1e-9 ? 0 : 1.08 / r;
+            if (r < 1e-9) { ex = 1.08; ey = 0; k = 1; }
+            la = LAKE_LAT + ey * k * LAKE_RY_KM / KM_PER_DEG_LAT;
+            ln = LAKE_LNG + ex * k * LAKE_RX_KM / KM_PER_DEG_LNG;
+        }
+        return new double[]{Math.round(la * 1e6) / 1e6, Math.round(ln * 1e6) / 1e6};
+    }
+
+    /** Least-squares plane t = c0 + c1 x + c2 y over the anchors (3x3 normal equations). */
+    private static double[] fit(int col) {
+        double[][] m = new double[3][4];
+        for (double[] a : ANCHORS) {
+            double[] r = {1, a[0], a[1]};
+            for (int i = 0; i < 3; i++) { for (int j = 0; j < 3; j++) m[i][j] += r[i] * r[j]; m[i][3] += r[i] * a[col]; }
+        }
+        for (int c = 0; c < 3; c++) {                    // Gauss-Jordan with partial pivoting
+            int p = c;
+            for (int r = c + 1; r < 3; r++) if (Math.abs(m[r][c]) > Math.abs(m[p][c])) p = r;
+            double[] t = m[c]; m[c] = m[p]; m[p] = t;
+            for (int r = 0; r < 3; r++) if (r != c) {
+                double f = m[r][c] / m[c][c];
+                for (int k = c; k < 4; k++) m[r][k] -= f * m[c][k];
+            }
+        }
+        return new double[]{m[0][3] / m[0][0], m[1][3] / m[1][1], m[2][3] / m[2][2]};
+    }
+
+    static final double KM_PER_DEG_LAT = 110.57, KM_PER_DEG_LNG = 105.2;
 
     public double distance(double x1, double y1, double x2, double y2) {
         return ROAD_FACTOR * Math.hypot(x1 - x2, y1 - y2);
