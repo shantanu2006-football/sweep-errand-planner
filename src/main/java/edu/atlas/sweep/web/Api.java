@@ -61,7 +61,9 @@ public final class Api {
 
     public record RouteReport(List<Integer> order, List<Integer> preorder, double km, double preorderKm, double mstKm, int twoOptMoves,
                               List<Edge> mstEdges, double nearestNeighbourKm, Double optimalKm, Double ratioToOptimal,
-                              long nanos) {}
+                              long nanos, List<double[]> path, int dijkstraRuns, int heapPops, int roadVertices) {}
+
+    public record RoadDto(String name, int w, List<double[]> pts) {}
 
     public record Totals(int basket, double km, int stops, int minutes, double travelCost, double total,
                          int savedVsMedian) {}

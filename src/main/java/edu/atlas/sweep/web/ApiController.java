@@ -70,6 +70,12 @@ public class ApiController {
         }).toList();
     }
 
+    /** The road polylines the planner routes over (the map draws exactly these). */
+    @GetMapping("/roads")
+    public List<RoadDto> roads() {
+        return city.roads().roads().stream().map(r -> new RoadDto(r.name(), r.width(), r.pts())).toList();
+    }
+
     @GetMapping("/items")
     public List<ItemDto> items() {
         return city.items().stream().map(i -> new ItemDto(i.id(), i.name(), i.category(), i.basePrice())).toList();

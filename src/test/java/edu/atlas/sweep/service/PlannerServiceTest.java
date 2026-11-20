@@ -79,4 +79,20 @@ class PlannerServiceTest {
         assertTrue(r.route().ratioToOptimal() <= 2.0 + 1e-9);
         assertTrue(r.route().km() >= r.route().mstKm() - 1e-9);
     }
+
+    @Test void routeFollowsRoadsFromHomeBackToHome() {
+        PlanResponse r = svc.plan(req(List.of(new Line("Milk 1L", 1), new Line("LED Bulb 9W", 1), new Line("Cat Food 1kg", 1)), 12));
+        List<double[]> path = r.route().path();
+        assertTrue(path.size() > r.stops().size() + 2, "path should bend along roads, not jump stop to stop");
+        assertArrayEquals(new double[]{4.5, 3.2}, path.get(0), 1e-3);
+        assertArrayEquals(new double[]{4.5, 3.2}, path.get(path.size() - 1), 1e-3);
+        double drawn = 0;
+        for (int i = 1; i < path.size(); i++) drawn += Math.hypot(path.get(i)[0] - path.get(i - 1)[0], path.get(i)[1] - path.get(i - 1)[1]);
+        assertEquals(r.route().km(), drawn, 0.01, "drawn polyline length equals the reported road km");
+        // road distance can never beat the straight line
+        double straight = 0, px = 4.5, py = 3.2;
+        for (Stop s : r.stops()) { straight += Math.hypot(s.x() - px, s.y() - py); px = s.x(); py = s.y(); }
+        straight += Math.hypot(4.5 - px, 3.2 - py);
+        assertTrue(r.route().km() >= straight - 1e-9);
+    }
 }

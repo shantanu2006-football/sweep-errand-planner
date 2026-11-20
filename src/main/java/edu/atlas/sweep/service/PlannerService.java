@@ -2,6 +2,7 @@ package edu.atlas.sweep.service;
 
 import edu.atlas.sweep.algo.*;
 import edu.atlas.sweep.domain.City;
+import edu.atlas.sweep.domain.RoadNetwork;
 import edu.atlas.sweep.domain.City.Listing;
 import edu.atlas.sweep.domain.City.Store;
 import edu.atlas.sweep.web.Api.*;
@@ -91,6 +92,7 @@ public final class PlannerService {
 
         Random rng = new Random(seed);
         int n = needs.size();
+        RoadNetwork.Session roads = city.roads().session(hx, hy);   // home joined to the road graph
 
         // ---------- 2. Bloom pre-screen + exact confirmation ----------
         List<Store> open = city.stores().stream().filter(s -> s.openAt(hour)).toList();
@@ -140,7 +142,7 @@ public final class PlannerService {
                 premium[j][i] = (double) (city.listing(s.id(), needs.get(i).itemId()).price() - minPrice[i]) * needs.get(i).qty();
             }
             covers[j] = c.stream().mapToInt(Integer::intValue).toArray();
-            cost[j] = stopCost + kmCost * 2 * city.distance(hx, hy, s.x(), s.y()); // round-trip proxy
+            cost[j] = stopCost + kmCost * 2 * roads.dist(roads.home, roads.vertexOf(s.id())); // round trip by road (Dijkstra)
         }
         SetCover.Instance inst = new SetCover.Instance(n, covers, cost, premium);
         long t1 = System.nanoTime();
@@ -191,13 +193,13 @@ public final class PlannerService {
         if (visiting.size() < chosen.size()) notices.add("dropped " + (chosen.size() - visiting.size()) + " store(s) whose items are cheaper at another chosen stop");
 
         // ---------- 4. route ----------
-        RouteResult rr = route(hx, hy, visiting, rng);
+        RouteResult rr = route(roads, visiting, rng);
         List<Stop> stops = new ArrayList<>();
         double cum = 0;
-        double px = hx, py = hy;
         for (int idx = 1; idx < rr.order.size(); idx++) {
             Store s = visiting.get(rr.order.get(idx) - 1);
-            double leg = city.distance(px, py, s.x(), s.y());
+            int prevV = idx == 1 ? roads.home : roads.vertexOf(visiting.get(rr.order.get(idx - 1) - 1).id());
+            double leg = roads.dist(prevV, roads.vertexOf(s.id()));
             cum += leg;
             List<Pick> picks = picksByStore.get(s.id());
             int sub = picks.stream().mapToInt(p -> p.price() * p.qty()).sum();
@@ -208,7 +210,6 @@ public final class PlannerService {
             if (risk) notices.add(s.name() + " closes at " + s.close() + ":00 and you'd reach it around " + clock(arriveH) + " - leave earlier or swap it");
             stops.add(new Stop(s.id(), s.name(), s.type(), s.x(), s.y(), picks, sub, round(leg, 2), eta,
                     City.lat(s.y()), City.lng(s.x()), clock(arriveH), s.close(), risk));
-            px = s.x(); py = s.y();
         }
         double km = rr.report.km();
         int minutes = (int) Math.round(km / speed * 60 + visiting.size() * MINUTES_PER_STOP);
@@ -220,24 +221,27 @@ public final class PlannerService {
         List<Alternative> alts = new ArrayList<>();
         alts.add(new Alternative("Sweep", "Greedy set cover + 2-approx route + 2-opt", visiting.size(), round(km, 2),
                 basket, round(basket + travel, 2), minutes, visiting.stream().map(Store::id).toList()));
-        alts.add(baselineCheapest(needs, open, can, uncoverable, hx, hy, kmCost, stopCost, speed, rng));
-        alts.add(baselineNearest(needs, open, can, uncoverable, hx, hy, kmCost, stopCost, speed, rng));
+        alts.add(baselineCheapest(needs, open, can, uncoverable, roads, kmCost, stopCost, speed, rng));
+        alts.add(baselineNearest(needs, open, can, uncoverable, roads, kmCost, stopCost, speed, rng));
 
         Map<String, Object> params = new LinkedHashMap<>();
         params.put("lambda", lambda); params.put("kmCost", kmCost); params.put("stopCost", stopCost);
-        params.put("speedKmh", speed); params.put("openStores", open.size()); params.put("roadFactor", City.ROAD_FACTOR);
+        params.put("speedKmh", speed); params.put("openStores", open.size()); params.put("roadVertices", city.roads().vertexCount());
         return new PlanResponse(new Point(hx, hy), hour, stops, totals, stats, screens, coverReport, rr.report,
                 alts, unmet, notices, params, share(hx, hy, hour, stops, totals, unmet, req.mode()));
     }
 
     private record RouteResult(List<Integer> order, RouteReport report) {}
 
-    private RouteResult route(double hx, double hy, List<Store> visit, Random rng) {
+    private RouteResult route(RoadNetwork.Session roads, List<Store> visit, Random rng) {
         int k = visit.size() + 1;
-        double[] xs = new double[k], ys = new double[k];
-        xs[0] = hx; ys[0] = hy;
-        for (int i = 0; i < visit.size(); i++) { xs[i + 1] = visit.get(i).x(); ys[i + 1] = visit.get(i).y(); }
-        double[][] d = MetricTsp.euclidean(xs, ys, City.ROAD_FACTOR);
+        int[] v = new int[k];
+        v[0] = roads.home;
+        for (int i = 0; i < visit.size(); i++) v[i + 1] = roads.vertexOf(visit.get(i).id());
+        int runs0 = roads.dijkstraRuns, pops0 = roads.heapPops;
+        double[][] d = new double[k][k];                       // road distances, one Dijkstra per stop
+        for (int i = 0; i < k; i++) for (int j = 0; j < k; j++) d[i][j] = i == j ? 0 : roads.dist(v[i], v[j]);
+        for (int i = 0; i < k; i++) for (int j = i + 1; j < k; j++) { double m = Math.min(d[i][j], d[j][i]); d[i][j] = m; d[j][i] = m; }
         long t = System.nanoTime();
         MetricTsp.ApproxTrace tr = MetricTsp.doubleTreeTwoOpt(d, rng);
         long ns = System.nanoTime() - t;
@@ -247,20 +251,27 @@ public final class PlannerService {
             opt = MetricTsp.heldKarp(d).length();
             ratio = opt < 1e-9 ? 1.0 : tr.improved().length() / opt;
         }
-        // MST edges reported with store ids (0 = home)
+        // the drawn route: concatenated shortest road paths between consecutive stops
+        List<double[]> path = new ArrayList<>();
+        List<Integer> ord = tr.improved().order();
+        for (int i = 0; i < ord.size(); i++) {
+            List<double[]> leg = roads.path(v[ord.get(i)], v[ord.get((i + 1) % ord.size())]);
+            for (int p = path.isEmpty() ? 0 : 1; p < leg.size(); p++) path.add(new double[]{round(leg.get(p)[0], 4), round(leg.get(p)[1], 4)});
+        }
         List<Edge> edges = tr.mst().stream().map(e -> new Edge(e.a() == 0 ? 0 : visit.get(e.a() - 1).id(),
                 e.b() == 0 ? 0 : visit.get(e.b() - 1).id(), round(e.w(), 2))).toList();
-        List<Integer> orderIds = tr.improved().order().stream().map(i -> i == 0 ? 0 : visit.get(i - 1).id()).toList();
+        List<Integer> orderIds = ord.stream().map(i -> i == 0 ? 0 : visit.get(i - 1).id()).toList();
         List<Integer> preIds = tr.preorder().order().stream().map(i -> i == 0 ? 0 : visit.get(i - 1).id()).toList();
         RouteReport rep = new RouteReport(orderIds, preIds, round(tr.improved().length(), 3), round(tr.preorder().length(), 3),
                 round(tr.mstWeight(), 3), tr.twoOptMoves(), edges, round(nn.length(), 3),
-                opt == null ? null : round(opt, 3), ratio == null ? null : round(ratio, 4), ns);
-        return new RouteResult(tr.improved().order(), rep);
+                opt == null ? null : round(opt, 3), ratio == null ? null : round(ratio, 4), ns,
+                path, roads.dijkstraRuns - runs0, roads.heapPops - pops0, city.roads().vertexCount());
+        return new RouteResult(ord, rep);
     }
 
     /** Baseline A: buy every item wherever it is cheapest, however many stops that takes. */
     private Alternative baselineCheapest(List<Need> needs, List<Store> open, boolean[][] can, Set<Integer> skip,
-                                         double hx, double hy, double kmCost, double stopCost, double speed, Random rng) {
+                                         RoadNetwork.Session roads, double kmCost, double stopCost, double speed, Random rng) {
         LinkedHashSet<Store> stops = new LinkedHashSet<>();
         int basket = 0;
         for (int i = 0; i < needs.size(); i++) {
@@ -274,23 +285,23 @@ public final class PlannerService {
             basket += bp * needs.get(i).qty();
         }
         return alt("Cheapest everywhere", "Each item from the store with the lowest price", new ArrayList<>(stops),
-                basket, hx, hy, kmCost, stopCost, speed, rng);
+                basket, roads, kmCost, stopCost, speed, rng);
     }
 
     /** Baseline B: keep going to the nearest store that has anything still missing. */
     private Alternative baselineNearest(List<Need> needs, List<Store> open, boolean[][] can, Set<Integer> skip,
-                                        double hx, double hy, double kmCost, double stopCost, double speed, Random rng) {
+                                        RoadNetwork.Session roads, double kmCost, double stopCost, double speed, Random rng) {
         boolean[] got = new boolean[needs.size()];
         for (int i : skip) got[i] = true;
         List<Store> stops = new ArrayList<>();
         int basket = 0;
-        double cx = hx, cy = hy;
+        int cur = roads.home;
         while (true) {
             int best = -1; double bd = Double.POSITIVE_INFINITY;
             for (int j = 0; j < open.size(); j++) {
                 boolean useful = false;
                 for (int i = 0; i < needs.size(); i++) if (!got[i] && can[i][j]) { useful = true; break; }
-                double dd = city.distance(cx, cy, open.get(j).x(), open.get(j).y());
+                double dd = roads.dist(cur, roads.vertexOf(open.get(j).id()));
                 if (useful && dd < bd) { bd = dd; best = j; }
             }
             if (best < 0) break;
@@ -300,15 +311,15 @@ public final class PlannerService {
                 got[i] = true;
                 basket += city.listing(s.id(), needs.get(i).itemId()).price() * needs.get(i).qty();
             }
-            cx = s.x(); cy = s.y();
+            cur = roads.vertexOf(s.id());
         }
-        return alt("Nearest store first", "Walk to the closest shop that has something you still need", stops,
-                basket, hx, hy, kmCost, stopCost, speed, rng);
+        return alt("Nearest store first", "Go to the closest shop (by road) that has something you still need", stops,
+                basket, roads, kmCost, stopCost, speed, rng);
     }
 
-    private Alternative alt(String name, String desc, List<Store> stops, int basket, double hx, double hy,
+    private Alternative alt(String name, String desc, List<Store> stops, int basket, RoadNetwork.Session roads,
                             double kmCost, double stopCost, double speed, Random rng) {
-        double km = stops.isEmpty() ? 0 : route(hx, hy, stops, rng).report.km();
+        double km = stops.isEmpty() ? 0 : route(roads, stops, rng).report.km();
         int minutes = (int) Math.round(km / speed * 60 + stops.size() * MINUTES_PER_STOP);
         double total = basket + kmCost * km + stopCost * stops.size();
         return new Alternative(name, desc, stops.size(), round(km, 2), basket, round(total, 2), minutes,

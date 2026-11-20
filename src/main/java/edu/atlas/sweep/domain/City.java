@@ -35,6 +35,7 @@ public final class City {
     private final Map<Integer, BloomFilter> blooms = new HashMap<>();
     private final Map<String, Integer> byName = new HashMap<>();
     private final Trie trie = new Trie();
+    private RoadNetwork roads;
 
     public static City load(Path dir, long seed) {
         City c = new City();
@@ -56,6 +57,7 @@ public final class City {
             c.inventory.computeIfAbsent(sid, k -> new HashMap<>())
                     .put(iid, new Listing(Integer.parseInt(r[2]), Integer.parseInt(r[3])));
         }
+        c.roads = RoadNetwork.load(dir.resolve("roads.json"), c.stores.values());
         Random rng = new Random(seed);
         for (Store s : c.stores.values()) {
             Map<Integer, Listing> inv = c.inventory.getOrDefault(s.id(), Map.of());
@@ -102,6 +104,7 @@ public final class City {
     public Map<Integer, Listing> inventoryOf(int storeId) { return inventory.getOrDefault(storeId, Map.of()); }
     public BloomFilter bloom(int storeId) { return blooms.get(storeId); }
     public Trie trie() { return trie; }
+    public RoadNetwork roads() { return roads; }
 
     /** Every price for an item across all stores (input for quickselect medians / deal scores). */
     public double[] pricesOf(int itemId) {
