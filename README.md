@@ -46,6 +46,7 @@ Tests and a runnable jar:
 Environment variables (all optional, no secrets): `PORT` (default 8080), `SWEEP_DATA_DIR` (default `data`).
 
 Regenerate the dataset (deterministic, seed 42): `python3 tools/generate_dataset.py`
+Rebuild the report/proposal PDFs from `docs/*.html`: `tools/make_pdfs.sh` (uses headless Chrome)
 
 ## Demo script (8 minutes)
 
